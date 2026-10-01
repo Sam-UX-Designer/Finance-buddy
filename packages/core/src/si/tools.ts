@@ -297,7 +297,7 @@ export const TOOLS: ToolDef<any>[] = [
     description: 'Projects bank balance to a date using expected salary, recurring payments and everyday spending.',
     params: { until: { type: 'string', description: 'ISO date to forecast to. Defaults to the end of this month.' } },
     run: ({ state, ctx }, input: { until?: string }) => {
-      const until = input.until ?? monthEndISO(istMonthKey(state.now));
+      const until = input.until ?? new Date(Date.parse(monthEndISO(istMonthKey(state.now))) - 60_000).toISOString();
       const f = cashForecast(ctx, until);
       return {
         tool: 'forecast_balance',

@@ -98,31 +98,36 @@ export function extractMonth(text: string, nowISO: string): string | undefined {
   return undefined;
 }
 
+/** Last minute of an IST month (so dates display as the 30th/31st, not the 1st of the next month). */
+function monthLastMinute(key: string): string {
+  return new Date(Date.parse(monthEndISO(key)) - 60_000).toISOString();
+}
+
 /** Forecast target: "by December", "end of the month", "next month", "in 6 months". */
 export function extractUntil(text: string, nowISO: string): { until: string; label: string } | undefined {
   const t = text.toLowerCase();
   const nowKey = istMonthKey(nowISO);
   const { year, month } = istParts(nowISO);
   if (/end of (the |this )?month|month end|month-end/.test(t)) {
-    return { until: monthEndISO(nowKey), label: 'the end of this month' };
+    return { until: monthLastMinute(nowKey), label: 'the end of this month' };
   }
   if (/next month/.test(t)) {
-    return { until: monthEndISO(addMonthsToKey(nowKey, 1)), label: 'the end of next month' };
+    return { until: monthLastMinute(addMonthsToKey(nowKey, 1)), label: 'the end of next month' };
   }
   const inN = t.match(/in (\d{1,2}) months?/);
   if (inN) {
     const n = Number(inN[1]);
-    return { until: monthEndISO(addMonthsToKey(nowKey, n)), label: `${n} months from now` };
+    return { until: monthLastMinute(addMonthsToKey(nowKey, n)), label: `${n} months from now` };
   }
   if (/end of (the )?year|year end|this year/.test(t)) {
-    return { until: istToISO(year + 1, 1, 1), label: `the end of ${year}` };
+    return { until: new Date(Date.parse(istToISO(year + 1, 1, 1)) - 60_000).toISOString(), label: `the end of ${year}` };
   }
   for (let i = 0; i < 12; i++) {
     const re = new RegExp(`\\b(by|till|until|in|end of)\\s+(${MONTHS[i]}|${MONTHS_SHORT[i]})\\b`);
     if (re.test(t)) {
       const y = i + 1 >= month ? year : year + 1;
       const key = `${y}-${pad2(i + 1)}`;
-      return { until: monthEndISO(key), label: `the end of ${MONTHS[i]![0]!.toUpperCase()}${MONTHS[i]!.slice(1)} ${y}` };
+      return { until: monthLastMinute(key), label: `the end of ${MONTHS[i]![0]!.toUpperCase()}${MONTHS[i]!.slice(1)} ${y}` };
     }
   }
   return undefined;

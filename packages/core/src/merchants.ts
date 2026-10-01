@@ -103,11 +103,12 @@ export function slug(text: string): string {
     .slice(0, 48);
 }
 
+const ACRONYMS = new Set(['PPFAS', 'UTI', 'SBI', 'HDFC', 'ICICI', 'IDFC', 'ELSS', 'LIC', 'EPF', 'DSP', 'ACT', 'HP', 'PVR', 'BSE', 'NSE', 'ATM', 'UPI', 'MF', 'SIP', 'LLP']);
+
 export function titleCase(text: string): string {
   return text
-    .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .map((w) => (ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : w[0]!.toUpperCase() + w.slice(1).toLowerCase()))
     .join(' ');
 }

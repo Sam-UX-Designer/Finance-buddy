@@ -97,7 +97,7 @@ export function topInsight(state: FinancialState, ctx: ForecastContext = forecas
       kind: 'CATEGORY_SPIKE',
       tone: 'attention',
       title: 'SI noticed',
-      body: `Your spending on ${name} is ${formatINR(spike.current, { decimals: 0 })} ${when}, ${Math.round(spike.changePct)}% higher than your usual average.`,
+      body: `Your spending on ${name} ${spike.window === 'MTD' ? 'is' : 'was'} ${formatINR(spike.current, { decimals: 0 })} ${when}, ${Math.round(spike.changePct)}% higher than your usual average.`,
       categoryId: spike.categoryId,
       question: `Why is my ${name} spending higher?`,
       facts: { current: spike.current, baseline: spike.baseline, changePct: spike.changePct },

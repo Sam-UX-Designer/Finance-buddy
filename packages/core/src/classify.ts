@@ -106,7 +106,7 @@ const RE_REFUND = /\b(REFUND|RFND|REVERSAL|REVERSED|REV)\b/;
 const RE_CASHBACK = /\bCASHBACK\b/;
 const RE_SELF = /\b(SELF|OWN A\/?C|OWN ACCOUNT|TO SELF)\b/;
 const RE_LOAN_GIVEN = /\b(LOAN|LEND|LENT|BORROW|UDHAAR|UDHAR)\b/;
-const RE_LOAN_REPAID = /\b(REPAY|REPAID|RETURNED|PAYBACK|PAY BACK|RETURNING)\b/;
+const RE_LOAN_REPAID = /\b(REPAY|REPAYING|REPAYMENT|REPAID|RETURNED|PAYBACK|PAY BACK|RETURNING)\b/;
 const RE_RENT = /\bRENT\b/;
 const RE_FAMILY = /\b(FAMILY|HOME|PARENTS|AMMA|APPA|MOM|DAD|MOTHER|FATHER)\b/;
 const RE_FEES = /\b(CHRG|CHARGES|GST ON|SMS ALERT|AMC|ANNUAL FEE)\b/;
@@ -133,7 +133,12 @@ export function classify(input: ClassificationInput, ctx: ClassificationContext 
 
   let merchantKey: string;
   let merchantName: string;
-  if (merchant) {
+  if (merchant && merchant.key === 'mf-sip' && parsed.remark) {
+    // One series per scheme, e.g. "PPFAS FLEXI CAP SIP" → "Ppfas Flexi Cap SIP".
+    const scheme = titleCase(parsed.remark.replace(/\bSIP\b/i, '').trim());
+    merchantKey = `mf-sip:${slug(scheme)}`;
+    merchantName = `${scheme} SIP`;
+  } else if (merchant) {
     merchantKey = merchant.key;
     merchantName = merchant.name;
   } else if (personName) {

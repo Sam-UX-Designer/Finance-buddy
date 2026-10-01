@@ -296,6 +296,7 @@ export async function planDTO(ctx: AppContext, userId: string): Promise<PlanDTO>
     goals: state.goals.map((g) => ({ ...g, projection: projectGoal(g, state.now, fctx.assumptions.goalReturnPct) })),
     projection: projectNetWorth(state, fctx),
     assumptions: fctx.assumptionInfo,
+    salaryFrom: fctx.salary?.payer ?? null,
   };
 }
 

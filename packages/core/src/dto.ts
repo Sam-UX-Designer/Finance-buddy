@@ -302,6 +302,8 @@ export interface PlanDTO {
   goals: GoalDTO[];
   projection: NetWorthProjection;
   assumptions: AssumptionInfo[];
+  /** Who pays the detected salary (for SI to confirm income), or null when none is detected. */
+  salaryFrom: string | null;
 }
 export interface ForecastDTO {
   nextSalaryDate: string | null;

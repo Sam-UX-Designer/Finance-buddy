@@ -2,16 +2,18 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, CircleCheck, CircleAlert, History, Info, Mic, SquarePen } from 'lucide-react-native';
+import { ArrowUp, CircleCheck, CircleAlert, History, Info, Mic, SquarePen, X } from 'lucide-react-native';
 import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
-import { useAsk, useNewChat, useSI } from '@/lib/queries';
+import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
+import { storage } from '@/lib/storage';
 import { ChatHistorySheet } from '@/features/ChatHistory';
+import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
-import { IconButton, webInputReset } from '@/ui/controls';
+import { Button, IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
 import { SIOrb } from '@/ui/SIOrb';
 import { Card, Press, Row, T } from '@/ui/primitives';
@@ -21,7 +23,7 @@ export default function SIScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { me } = useSession();
-  const params = useLocalSearchParams<{ q?: string }>();
+  const params = useLocalSearchParams<{ q?: string; setup?: string }>();
   // Which chat is open: a chat picked from history, or (undefined) the latest one.
   const [openId, setOpenId] = useState<string | undefined>();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -37,10 +39,38 @@ export default function SIScreen() {
   const tabInset = useTabBarInset();
   const width = wide ? WIDE_MAX_WIDTH : MAX_WIDTH;
   const keyboard = useKeyboardVisible();
+  // Money-profile setup: SI asks for the numbers plans and forecasts use.
+  const plan = usePlan();
+  const setAssumptions = useSetAssumptions();
+  const setup = useSISetup({ plan: plan.data, save: (body) => setAssumptions.mutateAsync(body) });
+  const [setupLater, setSetupLater] = useState(true);
+  useEffect(() => {
+    storage
+      .get(SETUP_LATER_KEY)
+      .then((v) => setSetupLater(v === '1'))
+      .catch(() => setSetupLater(false));
+  }, []);
+  const needsSetup = !!plan.data && plan.data.assumptions.find((a) => a.key === 'monthlyIncome')?.source !== 'USER';
+  const startSetup = () => {
+    setError(null);
+    setText('');
+    setup.start();
+  };
 
   const send = async (q: string) => {
     const question = q.trim();
     if (!question || ask.isPending) return;
+    if (setup.active) {
+      if (setup.step !== 'done') {
+        setText('');
+        setup.answer(question);
+        return;
+      }
+      setup.exit();
+      if (/^see my plan$/i.test(question)) return router.push('/(tabs)/plan');
+      if (/^done$/i.test(question)) return;
+    }
+    if (UPDATE_NUMBERS.test(question) && plan.data) return startSetup();
     setText('');
     setError(null);
     setPending(question);
@@ -62,8 +92,15 @@ export default function SIScreen() {
   }, [params.q, si.data]);
 
   useEffect(() => {
+    if (params.setup && plan.data) {
+      startSetup();
+      router.setParams({ setup: undefined });
+    }
+  }, [params.setup, plan.data]);
+
+  useEffect(() => {
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
-  }, [si.data?.messages.length, pending]);
+  }, [si.data?.messages.length, pending, setup.lines.length]);
 
   const greeting = greetingFor(new Date().toISOString());
   const first = me?.name?.split(' ')[0];
@@ -88,9 +125,11 @@ export default function SIScreen() {
   const asked = new Set(messages.filter((m) => m.role === 'user').map((m) => m.text.trim().toLowerCase()));
   const lastAnswer = [...messages].reverse().find((m) => m.role === 'assistant');
   const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 6);
-  const showSuggestions = !!si.data && !pending && prompts.length > 0;
+  const replies = setup.active ? setup.replies : prompts;
+  const showSuggestions = !!si.data && !pending && replies.length > 0;
   const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
   const startNewChat = () => {
+    setup.exit();
     setError(null);
     setOpenId(undefined);
     newChat.mutate();
@@ -117,50 +156,89 @@ export default function SIScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: header + space.lg, paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H : 0) + space.xl }}
           >
-            {/* Proactive brief */}
-            <FadeIn>
-              <Card style={{ gap: space.sm }}>
-                <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
-                {si.data.brief.enoughData ? (
-                  <>
-                    <T v="body">Here’s what I noticed this week:</T>
-                    {si.data.brief.items.map((i) => (
-                      <BriefLine key={i.id} item={i} />
-                    ))}
-                  </>
-                ) : (
-                  <T v="body" tone="secondary">
-                    I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
-                  </T>
-                )}
-              </Card>
-            </FadeIn>
+            {setup.active ? (
+              <View style={{ gap: space.lg }} accessibilityLiveRegion="polite">
+                {setup.lines.map((l) => (
+                  <SetupBubble key={l.id} l={l} />
+                ))}
+              </View>
+            ) : (
+              <>
+              {needsSetup && !setupLater ? (
+                <FadeIn>
+                  <Card style={{ marginBottom: space.lg, gap: space.md }}>
+                    <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
+                      <SIOrb size={32} />
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <T v="bodySemibold">Let’s make your plan yours</T>
+                        <T v="small" tone="secondary">
+                          I’ve estimated your income and spending from your bank. Answer 5 quick questions so my advice fits you.
+                        </T>
+                      </View>
+                    </Row>
+                    <Row gap={space.sm}>
+                      <Button label="Start" size="md" onPress={startSetup} style={{ flex: 1 }} />
+                      <Button
+                        label="Not now"
+                        size="md"
+                        variant="secondary"
+                        style={{ flex: 1 }}
+                        onPress={() => {
+                          setSetupLater(true);
+                          void storage.set(SETUP_LATER_KEY, '1').catch(() => undefined);
+                        }}
+                      />
+                    </Row>
+                  </Card>
+                </FadeIn>
+              ) : null}
 
-            {/* Conversation */}
-            <View style={{ marginTop: space.xl, gap: space.lg }}>
-              {si.data.messages.map((m) => (
-                <Message key={m.id} m={m} />
-              ))}
-              {pending ? (
-                <>
-                  <UserBubble text={pending} />
-                  <Row gap={space.sm} accessibilityLabel="SI is working on your answer" accessibilityLiveRegion="polite">
-                    <ActivityIndicator size="small" color={c.textSecondary} />
-                    <T v="small" tone="secondary">
-                      Checking your numbers…
+              {/* Proactive brief */}
+              <FadeIn>
+                <Card style={{ gap: space.sm }}>
+                  <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
+                  {si.data.brief.enoughData ? (
+                    <>
+                      <T v="body">Here’s what I noticed this week:</T>
+                      {si.data.brief.items.map((i) => (
+                        <BriefLine key={i.id} item={i} />
+                      ))}
+                    </>
+                  ) : (
+                    <T v="body" tone="secondary">
+                      I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
+                    </T>
+                  )}
+                </Card>
+              </FadeIn>
+
+              {/* Conversation */}
+              <View style={{ marginTop: space.xl, gap: space.lg }}>
+                {si.data.messages.map((m) => (
+                  <Message key={m.id} m={m} />
+                ))}
+                {pending ? (
+                  <>
+                    <UserBubble text={pending} />
+                    <Row gap={space.sm} accessibilityLabel="SI is working on your answer" accessibilityLiveRegion="polite">
+                      <ActivityIndicator size="small" color={c.textSecondary} />
+                      <T v="small" tone="secondary">
+                        Checking your numbers…
+                      </T>
+                    </Row>
+                  </>
+                ) : null}
+                {error ? (
+                  <Row gap={space.sm} accessibilityLiveRegion="polite">
+                    <CircleAlert size={16} color={c.negative} />
+                    <T v="small" tone="negative">
+                      {error}
                     </T>
                   </Row>
-                </>
-              ) : null}
-              {error ? (
-                <Row gap={space.sm} accessibilityLiveRegion="polite">
-                  <CircleAlert size={16} color={c.negative} />
-                  <T v="small" tone="negative">
-                    {error}
-                  </T>
-                </Row>
-              ) : null}
-            </View>
+                ) : null}
+              </View>
+              </>
+            )}
           </ScrollView>
         )}
 
@@ -174,11 +252,15 @@ export default function SIScreen() {
                   Super Intelligence
                 </T>
                 <T v="caption" tone="secondary">
-                  {pending ? 'Thinking…' : 'Answers from your own numbers'}
+                  {setup.active ? 'Setting up your plan' : pending ? 'Thinking…' : 'Answers from your own numbers'}
                 </T>
               </View>
               <IconButton icon={History} label="Chat history" onPress={() => setHistoryOpen(true)} />
-              {si.data?.messages.length ? <IconButton icon={SquarePen} label="New chat" onPress={startNewChat} /> : null}
+              {setup.active ? (
+                <IconButton icon={X} label="Exit setup" onPress={setup.exit} />
+              ) : si.data?.messages.length ? (
+                <IconButton icon={SquarePen} label="New chat" onPress={startNewChat} />
+              ) : null}
             </Row>
           </GlassSurface>
         </View>
@@ -187,15 +269,15 @@ export default function SIScreen() {
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
           {showSuggestions ? (
             <ScrollView
-              key={prompts.join('|')}
+              key={replies.join('|')}
               horizontal
               showsHorizontalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              accessibilityLabel="Suggested questions"
+              accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
               style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
               contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
             >
-              {prompts.map((q) => (
+              {replies.map((q) => (
                 <Press
                   key={q}
                   onPress={() => send(q)}
@@ -214,7 +296,7 @@ export default function SIScreen() {
               ref={input}
               value={text}
               onChangeText={setText}
-              placeholder="Ask anything about your money…"
+              placeholder={setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…')}
               placeholderTextColor={c.textSecondary}
               accessibilityLabel="Ask SI a question"
               returnKeyType="send"
@@ -239,6 +321,7 @@ export default function SIScreen() {
         onClose={() => setHistoryOpen(false)}
         currentId={si.data?.conversationId}
         onOpen={(id) => {
+          setup.exit();
           setError(null);
           setOpenId(id);
           setHistoryOpen(false);
@@ -253,6 +336,9 @@ export default function SIScreen() {
 }
 
 const HEADER_H = 60;
+const SETUP_LATER_KEY = 'fb.si.setupLater';
+/** "Update my numbers", "change my income", "set up my profile"… start SI's setup questions. */
+const UPDATE_NUMBERS = /\b(update|change|edit|set ?up|redo)\b.*\b(numbers|income|salary|assumptions?|profile|spending|buffer)\b/i;
 const INPUT_H = 52;
 const SUGGEST_H = 46;
 
@@ -284,6 +370,26 @@ function UserBubble({ text }: { text: string }) {
         {text}
       </T>
     </View>
+  );
+}
+
+function SetupBubble({ l }: { l: SetupLine }) {
+  const { c } = useTheme();
+  if (l.role === 'user') return <UserBubble text={l.text} />;
+  return (
+    <FadeIn>
+      <View style={{ gap: space.sm }}>
+        <T v="body">{l.text}</T>
+        {l.bullets?.map((b, i) => (
+          <Row key={i} gap={space.sm} style={{ alignItems: 'flex-start' }}>
+            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textSecondary, marginTop: 9 }} />
+            <T v="body" style={{ flex: 1 }}>
+              {b}
+            </T>
+          </Row>
+        ))}
+      </View>
+    </FadeIn>
   );
 }
 

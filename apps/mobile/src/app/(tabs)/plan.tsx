@@ -71,6 +71,7 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
   if (plan.error && !d) return <ErrorState error={plan.error} onRetry={() => plan.refetch()} />;
   if (!d) return <LoadingState />;
   const p = d.projection;
+  const estimated = d.assumptions.find((a) => a.key === 'monthlyIncome')?.source !== 'USER';
   const untilParts = istParts(p.until);
   return (
     <FadeIn>
@@ -127,13 +128,29 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
         <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
           {`Assumes ${formatINR(p.monthlySavings, { decimals: 0 })}/month saved, ${formatINR(p.monthlySip, { decimals: 0 })}/month in SIPs at ${p.assumptions.mfReturnPct}% a year, EPF at ${p.assumptions.epfRatePct}%. `}
         </T>
-        <Press onPress={() => router.push('/assumptions')} accessibilityRole="button" hitSlop={8}>
-          <T v="captionMedium" tone="info">
-            Change assumptions
-          </T>
-        </Press>
+        <NumbersActions estimated={estimated} />
       </Card>
     </FadeIn>
+  );
+}
+
+/**
+ * Real buttons for the numbers behind projections and forecasts: SI asks for them in a short chat
+ * (pre-filled from bank data), or they can be edited directly.
+ */
+function NumbersActions({ estimated }: { estimated: boolean }) {
+  return (
+    <View style={{ marginTop: space.lg, gap: space.sm }}>
+      {estimated ? (
+        <T v="caption" tone="secondary">
+          These numbers are estimates from your bank data. Confirm them with SI so your plan fits you.
+        </T>
+      ) : null}
+      <Row gap={space.sm}>
+        <Button label={estimated ? 'Set up with SI' : 'Update with SI'} size="md" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/(tabs)/si', params: { setup: '1' } })} />
+        <Button label="Edit numbers" size="md" variant="secondary" style={{ flex: 1 }} onPress={() => router.push('/assumptions')} />
+      </Row>
+    </View>
   );
 }
 
@@ -173,11 +190,7 @@ function Forecast({ q }: { q: ReturnType<typeof useForecast> }) {
         <Line label="Everyday spending" value={`−${formatINR(f.variableSpend, { decimals: 0 })}`} />
         <Divider />
         <Line label="Expected balance" value={formatINR(f.end, { decimals: 0 })} bold />
-        <Press onPress={() => router.push('/assumptions')} accessibilityRole="button" style={{ marginTop: space.md }} hitSlop={8}>
-          <T v="smallMedium" tone="info">
-            Change assumptions
-          </T>
-        </Press>
+        <NumbersActions estimated={d.assumptions.find((a) => a.key === 'monthlyIncome')?.source !== 'USER'} />
       </Card>
 
       {f.obligationItems.length ? (

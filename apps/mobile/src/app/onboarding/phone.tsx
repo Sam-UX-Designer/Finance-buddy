@@ -9,6 +9,7 @@ import { space } from '@/theme/tokens';
 import { Button, TextField } from '@/ui/controls';
 import { BackHeader, FadeIn, Screen } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
+import { SIOrb } from '@/ui/SIOrb';
 
 function formatPhone(digits: string) {
   return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
@@ -53,7 +54,10 @@ export default function PhoneScreen() {
     >
       <BackHeader onBack={() => router.replace('/')} />
       <FadeIn>
-        <T v="headline" style={{ marginTop: space.xl }} accessibilityRole="header">
+        <View style={{ marginTop: space.md }}>
+          <SIOrb size={96} />
+        </View>
+        <T v="headline" style={{ marginTop: space.lg }} accessibilityRole="header">
           {'Your money,\nall in one place.'}
         </T>
         <T v="body" tone="secondary" style={{ marginTop: space.md, maxWidth: 320 }}>

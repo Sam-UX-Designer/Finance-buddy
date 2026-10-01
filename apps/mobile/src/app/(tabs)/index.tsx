@@ -183,14 +183,20 @@ export default function HomeScreen() {
       overlay={editBar}
     >
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: space.lg }}>
-        <View>
-          <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
-            {d ? `${d.greeting},` : ' '}
-          </T>
-          <T v="title" style={{ fontSize: 26, lineHeight: 32 }}>
-            {d ? `${d.name ?? 'there'} 👋` : ' '}
-          </T>
-        </View>
+        <Row gap={space.md} style={{ flexShrink: 1 }}>
+          {/* The mascot is Super Intelligence: it greets you, and a tap opens it. */}
+          <Press onPress={() => router.push('/(tabs)/si')} accessibilityRole="button" accessibilityLabel="Open Super Intelligence" scaleTo={0.92} hitSlop={6}>
+            <SIOrb size={54} />
+          </Press>
+          <View style={{ flexShrink: 1 }}>
+            <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
+              {d ? `${d.greeting},` : ' '}
+            </T>
+            <T v="title" style={{ fontSize: 26, lineHeight: 32 }} numberOfLines={1}>
+              {d ? (d.name ?? 'there') : ' '}
+            </T>
+          </View>
+        </Row>
         <Row style={{ marginRight: -8, display: wide ? 'none' : 'flex' }}>
           <IconButton icon={Bell} label={d?.unreadNotifications ? `Notifications, ${d.unreadNotifications} unread` : 'Notifications'} dot={!!d?.unreadNotifications} onPress={() => router.push('/notifications')} />
           <IconButton icon={CircleUserRound} label="Profile and settings" onPress={() => router.push('/settings')} />

@@ -12,7 +12,8 @@ import { loadConfig } from './config';
 let listener: Promise<ReturnType<typeof getRequestListener>> | null = null;
 
 async function init() {
-  const ctx = await buildContext(loadConfig(process.env));
+  // Always production rules on Vercel (secrets required; sandbox only with SANDBOX_MODE=true).
+  const ctx = await buildContext(loadConfig({ ...process.env, NODE_ENV: 'production' }));
   // Keep sync/discovery jobs running after the response is sent.
   ctx.background = (work) => waitUntil(work.catch((e) => ctx.log('error', 'background task failed', { error: String(e) })));
   return getRequestListener(createApp(ctx, { basePath: '/api' }).fetch);

@@ -73,7 +73,7 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
   return (
     <FadeIn>
       {d.goals.length === 0 ? (
-        <EmptyState title="No goals yet" body="Add a goal — an emergency fund, a laptop, a trip — and SI will track whether you're on course." />
+        <EmptyState title="No goals yet" body="Add a goal (an emergency fund, a laptop, a trip) and SI will track whether you're on course." />
       ) : (
         <View>
           {d.goals.map((g, i) => (
@@ -236,7 +236,7 @@ function Budgets({ q }: { q: ReturnType<typeof useBudgets> }) {
         {`${formatMonthKey(d.monthKey)} · spending against your monthly limits`}
       </T>
       {d.budgets.length === 0 ? (
-        <EmptyState title="No budgets yet" body="Pick a category below to set a monthly limit. Budgets are optional — SI tracks spending either way." />
+        <EmptyState title="No budgets yet" body="Pick a category below to set a monthly limit. Budgets are optional. SI tracks spending either way." />
       ) : (
         d.budgets.map((b, i) => (
           <View key={b.budgetId}>

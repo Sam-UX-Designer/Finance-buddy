@@ -65,7 +65,7 @@ export default function GoalScreen() {
                 ? 'Goal reached.'
                 : g.projection.status === 'NO_CONTRIBUTION'
                   ? 'No monthly contribution set.'
-                  : `${g.projection.onTrack ? 'On track' : 'Behind'} — expected ${formatDate(g.projection.projectedCompletionDate!)}`}
+                  : `${g.projection.onTrack ? 'On track' : 'Behind'}, expected ${formatDate(g.projection.projectedCompletionDate!)}`}
             </T>
           </Card>
 
@@ -81,7 +81,7 @@ export default function GoalScreen() {
                 <IconButton icon={Plus} label="Increase by ₹1,000" onPress={() => setWhatIf((v) => (v ?? 0) + step)} />
               </Row>
               <T v="body" style={{ marginTop: space.md }} tone={scenario.onTrack ? 'positive' : 'warning'}>
-                {scenario.projectedCompletionDate ? `You'd reach it by ${formatDate(scenario.projectedCompletionDate)}${scenario.onTrack ? ' — on time.' : ' — after your target date.'}` : 'At ₹0/month this goal won’t be reached.'}
+                {scenario.projectedCompletionDate ? `You'd reach it by ${formatDate(scenario.projectedCompletionDate)}${scenario.onTrack ? ', on time.' : ', after your target date.'}` : 'At ₹0/month this goal won’t be reached.'}
               </T>
               <T v="small" tone="secondary" style={{ marginTop: 4 }}>{`Needed for your date: ${formatINR(scenario.requiredMonthly, { decimals: 0 })}/month`}</T>
               {whatIf !== g.monthlyContribution ? (

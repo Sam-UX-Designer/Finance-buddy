@@ -286,7 +286,7 @@ export const TOOLS: ToolDef<any>[] = [
         data: { suggested: c.suggested, availableToSpend: c.availableToSpend, plannedInvestments: c.plannedInvestments, untilDate: c.untilDate },
         facts: [
           `You could invest about ${inr(c.suggested)} more before ${formatDate(c.untilDate)}.`,
-          `Already planned investments (SIPs) in that period: ${inr(c.plannedInvestments)} — these are already accounted for.`,
+          `Already planned investments (SIPs) in that period: ${inr(c.plannedInvestments)}. These are already accounted for.`,
           `This keeps your ${inr(ctx.assumptions.safetyBuffer)} safety buffer and expected everyday spending of ${inr(c.basis.expectedSpend)}.`,
         ],
       };
@@ -339,7 +339,7 @@ export const TOOLS: ToolDef<any>[] = [
         facts: [
           `Net worth: ${inr(nw.netWorth)}.`,
           ...nw.lines.map((l) => `${l.label}: ${inr(l.value)}.`),
-          `Change since ${formatDate(ch.sinceDate)}: ${ch.change >= 0 ? '+' : '−'}${inr(Math.abs(ch.change))}${ch.changePct != null ? ` (${signedPct(ch.changePct)})` : ''} — ${inr(ch.fromMarketAndInterest)} from market and interest, ${formatINR(ch.fromSavings, { decimals: 0 })} from your savings.`,
+          `Change since ${formatDate(ch.sinceDate)}: ${ch.change >= 0 ? '+' : '−'}${inr(Math.abs(ch.change))}${ch.changePct != null ? ` (${signedPct(ch.changePct)})` : ''}: ${inr(ch.fromMarketAndInterest)} from market and interest, ${formatINR(ch.fromSavings, { decimals: 0 })} from your savings.`,
         ],
       };
     },
@@ -359,7 +359,7 @@ export const TOOLS: ToolDef<any>[] = [
                 ? `${goal.name}: completed.`
                 : p.status === 'NO_CONTRIBUTION'
                   ? `${goal.name}: ${p.progressPct}% done; no monthly contribution set, so it won't complete on its own. ${inr(p.requiredMonthly)}/month would reach it by ${formatDate(goal.targetDate)}.`
-                  : `${goal.name}: ${p.progressPct}% done, ${p.onTrack ? 'on track' : 'behind'} — expected by ${formatDate(p.projectedCompletionDate!)} (target ${formatDate(goal.targetDate)}).${p.onTrack ? '' : ` ${inr(p.requiredMonthly)}/month would get you there on time.`}`,
+                  : `${goal.name}: ${p.progressPct}% done, ${p.onTrack ? 'on track' : 'behind'}, expected by ${formatDate(p.projectedCompletionDate!)} (target ${formatDate(goal.targetDate)}).${p.onTrack ? '' : ` ${inr(p.requiredMonthly)}/month would get you there on time.`}`,
             )
           : ['No goals set yet.'],
         insufficient: rows.length === 0,
@@ -429,8 +429,8 @@ export const TOOLS: ToolDef<any>[] = [
       const facts = ideas.slice(0, 3).map(
         (i) => `${category(i.categoryId).name}: about ${inr(i.monthlyAvg)}/month over ${i.orders} payments (average ${inr(i.avgOrder)}). Skipping 1 in 4 would save about ${inr(i.saving)}/month.`,
       );
-      if (subs.length) facts.push(`Subscriptions cost about ${inr(subsMonthly)}/month — worth checking which you still use.`);
-      if (facts.length === 0) facts.push('Your flexible spending is already modest — no clear place to cut.');
+      if (subs.length) facts.push(`Subscriptions cost about ${inr(subsMonthly)}/month. Worth checking which you still use.`);
+      if (facts.length === 0) facts.push('Your flexible spending is already modest, so there’s no clear place to cut.');
       return { tool: 'coach_reduce_spending', data: { ideas, subscriptionsMonthly: subsMonthly }, facts };
     },
   },

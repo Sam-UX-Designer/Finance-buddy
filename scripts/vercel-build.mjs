@@ -13,7 +13,12 @@ const run = (cmd, cwd = root) => execSync(cmd, { cwd, stdio: 'inherit', env: pro
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
-// 1. Web app
+// 1. Web app (with real brand logos downloaded at build time; the build continues if that fails)
+try {
+  run('node scripts/fetch-logos.mjs');
+} catch {
+  console.warn('Logo download failed; the app will use its fallback icons.');
+}
 const mobile = join(root, 'apps/mobile');
 rmSync(join(mobile, 'dist'), { recursive: true, force: true });
 run('npx expo export --platform web --output-dir dist', mobile);

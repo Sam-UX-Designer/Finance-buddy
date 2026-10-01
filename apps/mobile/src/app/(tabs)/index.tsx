@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, Sparkles, TrendingUp } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, TrendingUp } from 'lucide-react-native';
 import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
 import { useHome, useSync } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { BalanceCards } from '@/features/BalanceCards';
+import { TxnRow } from '@/features/TxnRow';
 import { SendSheet } from '@/features/SendSheet';
 import { Button, IconButton } from '@/ui/controls';
 import { EmojiAvatar, IconTile, Money } from '@/ui/display';
-import { Banner, ErrorState, FadeIn, Screen, Skeleton } from '@/ui/layout';
+import { Banner, ErrorState, FadeIn, Screen, Skeleton, useWide } from '@/ui/layout';
 import { Card, Press, Row, SectionTitle, T } from '@/ui/primitives';
+import { SIOrb } from '@/ui/SIOrb';
 
 /** Home answers: "How am I doing financially right now?" (Blueprint §8). */
 export default function HomeScreen() {
@@ -21,6 +23,7 @@ export default function HomeScreen() {
   const [hidden, setHidden] = useState(false);
   const [sending, setSending] = useState(false);
   const d = home.data;
+  const wide = useWide();
 
   const refresh = async () => {
     try {
@@ -31,8 +34,66 @@ export default function HomeScreen() {
     await home.refetch();
   };
 
+  const moneyBlock = d ? (
+    <>
+      {d.wealth ? <NetWorthCard w={d.wealth} hidden={hidden} /> : null}
+
+      {/* Balance cards */}
+      <View style={{ marginTop: space.lg }}>
+        <BalanceCards total={d.balance.total} accounts={d.balance.accounts} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} />
+      </View>
+      <Row gap={space.md} style={{ marginTop: space.lg }}>
+        <Button label="Send" size="md" style={{ flex: 1 }} onPress={() => setSending(true)} />
+        <Button label="View Accounts" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => router.push('/accounts')} />
+      </Row>
+    </>
+  ) : null;
+  const thisMonth = d ? (
+    <View style={{ marginTop: space.xxl }}>
+      <SectionTitle>This Month</SectionTitle>
+      <Row gap={space.sm}>
+        <MonthTile label="Income" value={d.month.income} color={c.positive} bg={c.positiveSoft} icon={<ArrowDownLeft size={14} color={c.positive} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'income', month: d.month.key } })} />
+        <MonthTile label="Spent" value={d.month.spent} color={c.negative} bg={c.negativeSoft} icon={<ArrowUpRight size={14} color={c.negative} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses', month: d.month.key } })} />
+        <MonthTile label="Invested" value={d.month.invested} color={c.text} bg={c.surfaceMuted} icon={<TrendingUp size={14} color={c.textSecondary} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'investments', month: d.month.key } })} />
+      </Row>
+    </View>
+  ) : null;
+  const upcoming = d ? (
+    <View style={{ marginTop: space.xxl }}>
+      <SectionTitle>Upcoming Payments</SectionTitle>
+      <Card>
+        {d.upcoming.count ? (
+          <Press onPress={() => router.push('/upcoming')} accessibilityRole="button" accessibilityLabel={`${d.upcoming.count} payments, ${formatINR(d.upcoming.total)} in the next ${d.upcoming.days} days. View all`} scaleTo={0.99}>
+            <Row gap={space.md}>
+              <IconTile icon={CalendarClock} color={c.negative} bg={c.negativeSoft} />
+              <View style={{ flex: 1 }}>
+                <T v="small" tone="secondary">{`${d.upcoming.count} payment${d.upcoming.count === 1 ? '' : 's'} · next ${d.upcoming.days} days`}</T>
+                <T v="subtitle">{formatINR(d.upcoming.total, { decimals: 0 })}</T>
+              </View>
+              <Row gap={4}>
+                <T v="smallMedium" tone="secondary">
+                  View all
+                </T>
+                <ArrowRight size={14} color={c.textSecondary} />
+              </Row>
+            </Row>
+            {d.upcoming.items[0] ? (
+              <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
+                {`Next: ${d.upcoming.items[0].merchantName} · ${formatINR(d.upcoming.items[0].amount, { decimals: 0 })} on ${formatDate(d.upcoming.items[0].dueDate)}`}
+              </T>
+            ) : null}
+          </Press>
+        ) : (
+          <T v="small" tone="secondary">
+            No recurring payments found yet. We’ll list bills, rent and SIPs here once we see them repeat.
+          </T>
+        )}
+      </Card>
+    </View>
+  ) : null;
+
   return (
-    <Screen refreshing={home.isRefetching || sync.isPending} onRefresh={refresh}>
+    <Screen refreshing={home.isRefetching || sync.isPending} onRefresh={refresh} maxWidth={wide ? 1120 : undefined}>
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: space.lg }}>
         <View>
           <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
@@ -42,7 +103,7 @@ export default function HomeScreen() {
             {d ? `${d.name ?? 'there'} 👋` : ' '}
           </T>
         </View>
-        <Row style={{ marginRight: -8 }}>
+        <Row style={{ marginRight: -8, display: wide ? 'none' : 'flex' }}>
           <IconButton icon={Bell} label={d?.unreadNotifications ? `Notifications, ${d.unreadNotifications} unread` : 'Notifications'} dot={!!d?.unreadNotifications} onPress={() => router.push('/notifications')} />
           <IconButton icon={CircleUserRound} label="Profile and settings" onPress={() => router.push('/settings')} />
         </Row>
@@ -55,67 +116,113 @@ export default function HomeScreen() {
       ) : (
         <FadeIn>
           <SyncNotice d={d} />
-          {d.wealth ? <NetWorthCard w={d.wealth} hidden={hidden} /> : null}
-
-          {/* Balance cards */}
-          <View style={{ marginTop: space.lg }}>
-            <BalanceCards total={d.balance.total} accounts={d.balance.accounts} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} />
-          </View>
-          <Row gap={space.md} style={{ marginTop: space.lg }}>
-            <Button label="Send" size="md" style={{ flex: 1 }} onPress={() => setSending(true)} />
-            <Button label="View Accounts" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => router.push('/accounts')} />
-          </Row>
-
-          {/* This month */}
-          <View style={{ marginTop: space.xxl }}>
-            <SectionTitle>This Month</SectionTitle>
-            <Row gap={space.sm}>
-              <MonthTile label="Income" value={d.month.income} color={c.positive} bg={c.positiveSoft} icon={<ArrowDownLeft size={14} color={c.positive} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'income', month: d.month.key } })} />
-              <MonthTile label="Spent" value={d.month.spent} color={c.negative} bg={c.negativeSoft} icon={<ArrowUpRight size={14} color={c.negative} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses', month: d.month.key } })} />
-              <MonthTile label="Invested" value={d.month.invested} color={c.text} bg={c.surfaceMuted} icon={<TrendingUp size={14} color={c.textSecondary} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'investments', month: d.month.key } })} />
+          {wide ? (
+            <Row gap={space.xxl} style={{ alignItems: 'flex-start' }}>
+              <View style={{ flex: 1.15 }}>
+                {moneyBlock}
+                {thisMonth}
+                {upcoming}
+              </View>
+              <View style={{ flex: 1 }}>
+                <SINoticed d={d} />
+                <TodaySpending t={d.today} />
+                {d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}
+              </View>
             </Row>
-          </View>
-
-          {/* SI brief */}
-          <SINoticed d={d} />
-
-          {/* Upcoming */}
-          <View style={{ marginTop: space.xxl }}>
-            <SectionTitle>Upcoming Payments</SectionTitle>
-            <Card>
-              {d.upcoming.count ? (
-                <Press onPress={() => router.push('/upcoming')} accessibilityRole="button" accessibilityLabel={`${d.upcoming.count} payments, ${formatINR(d.upcoming.total)} in the next ${d.upcoming.days} days. View all`} scaleTo={0.99}>
-                  <Row gap={space.md}>
-                    <IconTile icon={CalendarClock} color={c.negative} bg={c.negativeSoft} />
-                    <View style={{ flex: 1 }}>
-                      <T v="small" tone="secondary">{`${d.upcoming.count} payment${d.upcoming.count === 1 ? '' : 's'} · next ${d.upcoming.days} days`}</T>
-                      <T v="subtitle">{formatINR(d.upcoming.total, { decimals: 0 })}</T>
-                    </View>
-                    <Row gap={4}>
-                      <T v="smallMedium" tone="secondary">
-                        View all
-                      </T>
-                      <ArrowRight size={14} color={c.textSecondary} />
-                    </Row>
-                  </Row>
-                  {d.upcoming.items[0] ? (
-                    <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
-                      {`Next: ${d.upcoming.items[0].merchantName} · ${formatINR(d.upcoming.items[0].amount, { decimals: 0 })} on ${formatDate(d.upcoming.items[0].dueDate)}`}
-                    </T>
-                  ) : null}
-                </Press>
-              ) : (
-                <T v="small" tone="secondary">
-                  No recurring payments found yet. We’ll list bills, rent and SIPs here once we see them repeat.
-                </T>
-              )}
-            </Card>
-          </View>
-
+          ) : (
+            <>
+              {moneyBlock}
+              {d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}
+              <TodaySpending t={d.today} />
+              <SINoticed d={d} />
+              {thisMonth}
+              {upcoming}
+            </>
+          )}
         </FadeIn>
       )}
       <SendSheet visible={sending} onClose={() => setSending(false)} />
     </Screen>
+  );
+}
+
+/** Investments at a glance: current value and returns so far. */
+function InvestmentsCard({ inv, hidden }: { inv: NonNullable<HomeDTO['investments']>; hidden: boolean }) {
+  const { c } = useTheme();
+  const up = inv.gain >= 0;
+  return (
+    <View style={{ marginTop: space.xxl }}>
+      <SectionTitle action="Details" onAction={() => router.push('/(tabs)/wealth')}>
+        Investments
+      </SectionTitle>
+      <Press onPress={() => router.push('/(tabs)/wealth')} accessibilityRole="button" accessibilityLabel={hidden ? 'Investments, hidden. Open Wealth' : `Investments worth ${formatINR(inv.value)}. Open Wealth`} scaleTo={0.99}>
+        <Card>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <View>
+              <T v="small" tone="secondary">
+                Current value
+              </T>
+              <Money value={inv.value} v="subtitle" decimals={0} hidden={hidden} />
+            </View>
+            {!hidden && inv.invested > 0 ? (
+              <View style={{ alignItems: 'flex-end' }}>
+                <T v="small" tone="secondary">
+                  Returns so far
+                </T>
+                <T v="bodySemibold" tone={up ? 'positive' : 'negative'}>
+                  {`${up ? '+' : '−'}${formatINR(Math.abs(inv.gain), { decimals: 0 })}${inv.gainPct != null ? ` (${Math.abs(inv.gainPct).toFixed(1)}%)` : ''}`}
+                </T>
+              </View>
+            ) : null}
+          </Row>
+          <View style={{ marginTop: space.md, gap: 10 }}>
+            {inv.lines.map((l) => (
+              <Row key={l.kind} style={{ justifyContent: 'space-between' }}>
+                <T v="small" tone="secondary" style={{ flex: 1 }}>
+                  {l.label}
+                </T>
+                <T v="smallMedium" style={{ fontVariant: ['tabular-nums'] }}>
+                  {hidden ? '₹ ••••' : formatINRCompact(l.value)}
+                </T>
+                <T v="small" tone={(l.gain ?? 0) >= 0 ? 'positive' : 'negative'} style={{ width: 64, textAlign: 'right', fontVariant: ['tabular-nums'] }}>
+                  {l.gainPct != null && !hidden ? `${l.gainPct >= 0 ? '+' : '−'}${Math.abs(l.gainPct).toFixed(1)}%` : ''}
+                </T>
+              </Row>
+            ))}
+          </View>
+        </Card>
+      </Press>
+    </View>
+  );
+}
+
+/** Today's spending and the latest three purchases. */
+function TodaySpending({ t }: { t: HomeDTO['today'] }) {
+  const { c } = useTheme();
+  const openAll = () => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses' } });
+  return (
+    <View style={{ marginTop: space.xxl }}>
+      <SectionTitle action="See all" onAction={openAll}>
+        Spending
+      </SectionTitle>
+      <Card style={{ paddingVertical: space.md }}>
+        <Row style={{ justifyContent: 'space-between', paddingBottom: space.sm, borderBottomWidth: t.recent.length ? 1 : 0, borderBottomColor: c.divider }}>
+          <T v="small" tone="secondary">
+            {t.count ? `Today · ${t.count} purchase${t.count === 1 ? '' : 's'}` : 'Today'}
+          </T>
+          <T v="bodySemibold" tone={t.spent ? 'negative' : 'secondary'}>
+            {t.spent ? formatINR(t.spent, { decimals: 0 }) : 'No spending yet'}
+          </T>
+        </Row>
+        {t.recent.length ? (
+          t.recent.map((x) => <TxnRow key={x.id} t={x} showDay />)
+        ) : (
+          <T v="small" tone="secondary" style={{ paddingTop: space.sm }}>
+            Your purchases will show here.
+          </T>
+        )}
+      </Card>
+    </View>
   );
 }
 
@@ -194,9 +301,7 @@ function SINoticed({ d }: { d: HomeDTO }) {
   return (
     <View style={{ marginTop: space.xxl, backgroundColor: c.siCard, borderRadius: radius.xl, borderWidth: 1, borderColor: c.siCardBorder, padding: space.lg }}>
       <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
-        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: c.loan, alignItems: 'center', justifyContent: 'center' }}>
-          <Sparkles size={18} color="#FFFFFF" />
-        </View>
+        <SIOrb size={34} />
         <View style={{ flex: 1, gap: 6 }}>
           <T v="bodySemibold" color={c.loan}>
             SI noticed

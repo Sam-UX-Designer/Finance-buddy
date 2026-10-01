@@ -1,17 +1,18 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { ArrowUp, CircleCheck, CircleAlert, Info, Mic, Sparkles } from 'lucide-react-native';
+import { ArrowUp, CircleCheck, CircleAlert, Info, Mic, SquarePen } from 'lucide-react-native';
 import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
-import { useAsk, useSI } from '@/lib/queries';
+import { useAsk, useClearSI, useSI } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
-import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X } from '@/ui/layout';
-import { webInputReset } from '@/ui/controls';
+import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
+import { IconButton, webInputReset } from '@/ui/controls';
+import { GlassSurface } from '@/ui/glass';
+import { SIOrb } from '@/ui/SIOrb';
 import { Press, Row, T } from '@/ui/primitives';
 
 /** SI: ask and receive financial intelligence (Blueprint §12). Answers come from Finance Engine tools. */
@@ -27,6 +28,11 @@ export default function SIScreen() {
   const [pending, setPending] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
   const handledQ = useRef<string | null>(null);
+  const clear = useClearSI();
+  const wide = useWide();
+  const tabInset = useTabBarInset();
+  const width = wide ? WIDE_MAX_WIDTH : MAX_WIDTH;
+  const keyboard = useKeyboardVisible();
 
   const send = async (q: string) => {
     const question = q.trim();
@@ -71,31 +77,33 @@ export default function SIScreen() {
     } else input.current?.focus();
   };
 
+  const header = HEADER_H + insets.top;
+  const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
+  const clearChat = () => {
+    setError(null);
+    clear.mutate();
+  };
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+      <View style={{ flex: 1 }}>
         {si.error && !si.data ? (
-          <ErrorState error={si.error} onRetry={() => si.refetch()} />
+          <View style={{ flex: 1, paddingTop: header }}>
+            <ErrorState error={si.error} onRetry={() => si.refetch()} />
+          </View>
         ) : !si.data ? (
-          <LoadingState label="SI is reading your latest numbers…" />
+          <View style={{ flex: 1, paddingTop: header }}>
+            <LoadingState label="SI is reading your latest numbers…" />
+          </View>
         ) : (
-          <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingBottom: space.xl }}>
-            <FadeIn style={{ alignItems: 'center', marginTop: space.xl, marginBottom: space.xl }}>
-              <Orb />
-              <T v="title" style={{ marginTop: space.md }} accessibilityRole="header">
-                SI
-              </T>
-              <T v="small" tone="secondary">
-                Super Intelligence
-              </T>
-            </FadeIn>
-
+          <ScrollView
+            ref={scroll}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: header + space.lg, paddingBottom: inputBottom + INPUT_H + space.xl }}
+          >
             {/* Proactive brief */}
-            <Row gap={space.sm} style={{ alignItems: 'flex-start' }}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.positive, alignItems: 'center', justifyContent: 'center', marginTop: 6 }}>
-                <Sparkles size={14} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1, backgroundColor: c.surfaceMuted, borderRadius: radius.lg, padding: space.lg, gap: space.sm }}>
+            <FadeIn>
+              <View style={{ backgroundColor: c.surfaceMuted, borderRadius: radius.lg, padding: space.lg, gap: space.sm }}>
                 <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
                 {si.data.brief.enoughData ? (
                   <>
@@ -110,21 +118,21 @@ export default function SIScreen() {
                   </T>
                 )}
               </View>
-            </Row>
+            </FadeIn>
 
-            <View style={{ marginTop: space.xl, marginLeft: 36, gap: space.sm }}>
+            <View style={{ marginTop: space.xl, gap: space.sm }}>
               <T v="small" tone="secondary">
                 You can ask me things like:
               </T>
               {si.data.suggestions.map((s) => (
-                <Press key={s} onPress={() => send(s)} accessibilityRole="button" style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.surface }}>
+                <Press key={s} onPress={() => send(s)} accessibilityRole="button" style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.surface }}>
                   <T v="small">{s}</T>
                 </Press>
               ))}
             </View>
 
             {/* Conversation */}
-            <View style={{ marginTop: space.xl, gap: space.md }}>
+            <View style={{ marginTop: space.xl, gap: space.lg }}>
               {si.data.messages.map((m) => (
                 <Message key={m.id} m={m} onFollowUp={send} />
               ))}
@@ -140,7 +148,7 @@ export default function SIScreen() {
                 </>
               ) : null}
               {error ? (
-                <Row gap={space.sm}>
+                <Row gap={space.sm} accessibilityLiveRegion="polite">
                   <CircleAlert size={16} color={c.negative} />
                   <T v="small" tone="negative">
                     {error}
@@ -151,19 +159,38 @@ export default function SIScreen() {
           </ScrollView>
         )}
 
-        {/* Input */}
-        <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingVertical: space.sm }}>
-          <Row style={{ borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: radius.pill, paddingLeft: space.lg, paddingRight: 6, height: 52, gap: space.sm }}>
+        {/* Sticky header: stays on top while the conversation scrolls underneath */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+          <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+            <Row gap={space.md} style={{ height: HEADER_H, width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
+              <SIOrb size={38} />
+              <View style={{ flex: 1 }}>
+                <T v="bodySemibold" accessibilityRole="header">
+                  Super Intelligence
+                </T>
+                <T v="caption" tone="secondary">
+                  {pending ? 'Thinking…' : 'Answers from your own numbers'}
+                </T>
+              </View>
+              {si.data?.messages.length ? <IconButton icon={SquarePen} label="New chat" onPress={clearChat} /> : null}
+            </Row>
+          </GlassSurface>
+        </View>
+
+        {/* Input: floats above the tab bar */}
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
+          <GlassSurface radius={INPUT_H / 2} style={{ width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center', height: INPUT_H, flexDirection: 'row', alignItems: 'center', paddingLeft: space.lg, paddingRight: 6, gap: space.sm }}>
             <TextInput
               ref={input}
               value={text}
               onChangeText={setText}
               placeholder="Ask anything about your money…"
-              placeholderTextColor={c.textTertiary}
+              placeholderTextColor={c.textSecondary}
               accessibilityLabel="Ask SI a question"
               returnKeyType="send"
               onSubmitEditing={() => send(text)}
               maxLength={500}
+              autoComplete="off"
               style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
             />
             <Press
@@ -174,32 +201,20 @@ export default function SIScreen() {
             >
               {text.trim() ? <ArrowUp size={18} color={c.primaryText} /> : <Mic size={18} color={c.primaryText} />}
             </Press>
-          </Row>
+          </GlassSurface>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
+const HEADER_H = 60;
+const INPUT_H = 52;
+
 interface SpeechRec {
   lang: string;
   onresult: (e: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void;
   start: () => void;
-}
-
-function Orb() {
-  return (
-    <Svg width={84} height={84} accessibilityLabel="SI">
-      <Defs>
-        <RadialGradient id="orb" cx="40%" cy="35%" r="70%">
-          <Stop offset="0" stopColor="#9FD3FF" />
-          <Stop offset="0.45" stopColor="#3B7BFF" />
-          <Stop offset="1" stopColor="#7C5CFC" />
-        </RadialGradient>
-      </Defs>
-      <Circle cx={42} cy={42} r={40} fill="url(#orb)" />
-    </Svg>
-  );
 }
 
 function BriefLine({ item }: { item: BriefItem }) {
@@ -232,34 +247,42 @@ function Message({ m, onFollowUp }: { m: SIMessageDTO; onFollowUp: (q: string) =
   if (m.role === 'user') return <UserBubble text={m.text} />;
   return (
     <FadeIn>
-      <Row gap={space.sm} style={{ alignItems: 'flex-start' }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.infoSoft, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
-          <Sparkles size={14} color={c.info} />
-        </View>
-        <View style={{ flex: 1, gap: space.sm }}>
-          <View style={{ backgroundColor: c.surfaceMuted, borderRadius: radius.lg, borderTopLeftRadius: 6, padding: space.md, gap: 6 }}>
-            <T v="body">{m.text}</T>
-            {m.bullets.map((b, i) => (
-              <Row key={i} gap={space.sm} style={{ alignItems: 'flex-start' }}>
-                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textSecondary, marginTop: 8 }} />
-                <T v="small" style={{ flex: 1 }}>
-                  {b}
-                </T>
-              </Row>
-            ))}
-          </View>
-          <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
-            {m.followUps.slice(0, 2).map((f) => (
-              <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 6 }}>
-                <T v="caption">{f}</T>
-              </Press>
-            ))}
+      <View style={{ gap: space.sm }}>
+        <T v="body">{m.text}</T>
+        {m.bullets.map((b, i) => (
+          <Row key={i} gap={space.sm} style={{ alignItems: 'flex-start' }}>
+            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textSecondary, marginTop: 9 }} />
+            <T v="body" style={{ flex: 1 }}>
+              {b}
+            </T>
           </Row>
-          <T v="caption" tone="tertiary">
-            {m.insufficient ? 'Based on the data available so far.' : 'Calculated from your connected accounts.'}
-          </T>
-        </View>
-      </Row>
+        ))}
+        <Row gap={space.sm} style={{ flexWrap: 'wrap', marginTop: 2 }}>
+          {m.followUps.slice(0, 2).map((f) => (
+            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8 }}>
+              <T v="small">{f}</T>
+            </Press>
+          ))}
+        </Row>
+        <T v="caption" tone="tertiary">
+          {m.insufficient ? 'Based on the data available so far.' : 'Calculated from your connected accounts.'}
+        </T>
+      </View>
     </FadeIn>
   );
+}
+
+/** Whether the on-screen keyboard is showing (phones). */
+function useKeyboardVisible(): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return visible;
 }

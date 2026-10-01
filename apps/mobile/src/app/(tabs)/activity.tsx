@@ -19,7 +19,7 @@ import { useAccounts, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { Button, Chip, ChipRow, IconButton, webInputReset } from '@/ui/controls';
-import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader } from '@/ui/layout';
+import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
 import { TxnRow } from '@/features/TxnRow';
 
@@ -53,6 +53,8 @@ export default function ActivityScreen() {
   const [accountId, setAccountId] = useState<string | undefined>();
   const [categoryId, setCategoryId] = useState<CategoryId | undefined>();
   const [sheet, setSheet] = useState(false);
+  const tabInset = useTabBarInset();
+  const contentWidth = useWide() ? WIDE_MAX_WIDTH : MAX_WIDTH;
 
   useEffect(() => {
     if (params.filter) setFilter(params.filter);
@@ -81,7 +83,7 @@ export default function ActivityScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
+      <View style={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
         <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />
         <Row style={{ backgroundColor: c.surfaceMuted, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
           <Search size={18} color={c.textTertiary} />
@@ -116,7 +118,7 @@ export default function ActivityScreen() {
           sections={sections}
           keyExtractor={(t) => t.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingBottom: space.xxxl }}
+          contentContainerStyle={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingBottom: space.xxxl + tabInset }}
           refreshControl={<RefreshControl refreshing={txns.isRefetching && !txns.isFetchingNextPage} onRefresh={() => txns.refetch()} tintColor={c.textSecondary} />}
           onEndReachedThreshold={0.4}
           onEndReached={() => txns.hasNextPage && !txns.isFetchingNextPage && txns.fetchNextPage()}

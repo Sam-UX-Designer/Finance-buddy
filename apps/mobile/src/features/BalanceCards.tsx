@@ -18,6 +18,8 @@ import { Row, T } from '@/ui/primitives';
 const ND = Platform.OS !== 'web';
 const RATIO = 1.586; // bank card proportions
 const RADIUS = 22;
+/** Largest card width (wide screens show several cards side by side). */
+const MAX_CARD_W = 420;
 const clamp = (v: number) => Math.max(-1, Math.min(1, v));
 const last4 = (masked: string) => masked.slice(-4);
 
@@ -33,15 +35,18 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const scroller = useRef<ScrollView>(null);
   const tilt = useMotionTilt(!reduceMotion);
   const sweep = useSweep(!reduceMotion);
-  const height = Math.max(190, Math.round(width / RATIO));
+  // Phones: one full-width card per page. Wide screens: real card size, several side by side.
+  const cardW = Math.min(width, MAX_CARD_W);
+  const pageW = cardW < width ? cardW + space.lg : cardW;
+  const height = Math.max(190, Math.round(cardW / RATIO));
   const pages = 1 + accounts.length;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;
-    const p = Math.round(e.nativeEvent.contentOffset.x / width);
+    const p = Math.round(e.nativeEvent.contentOffset.x / pageW);
     if (p !== page) setPage(Math.max(0, Math.min(pages - 1, p)));
   };
-  const goTo = (p: number) => scroller.current?.scrollTo({ x: p * width, animated: !reduceMotion });
+  const goTo = (p: number) => scroller.current?.scrollTo({ x: p * pageW, animated: !reduceMotion });
 
   return (
     <View onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))}>
@@ -55,27 +60,27 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
           scrollEventThrottle={32}
           accessibilityLabel="Balance cards"
         >
-          <View style={{ width }}>
+          <View style={{ width: pageW }}>
             <FlipCard
-              width={width}
+              width={cardW}
               height={height}
               tilt={tilt}
               label={hidden ? 'Total balance, hidden' : `Total balance ${formatINR(total)} across ${accounts.length} accounts`}
               front={(flipped) => (
-                <TotalFront total={total} accounts={accounts} hidden={hidden} onToggleHidden={onToggleHidden} width={width} height={height} tilt={tilt} sweep={sweep} active={!flipped} />
+                <TotalFront total={total} accounts={accounts} hidden={hidden} onToggleHidden={onToggleHidden} width={cardW} height={height} tilt={tilt} sweep={sweep} active={!flipped} />
               )}
-              back={() => <TotalBack accounts={accounts} hidden={hidden} width={width} height={height} tilt={tilt} sweep={sweep} />}
+              back={() => <TotalBack accounts={accounts} hidden={hidden} width={cardW} height={height} tilt={tilt} sweep={sweep} />}
             />
           </View>
           {accounts.map((a) => (
-            <View key={a.id} style={{ width }}>
+            <View key={a.id} style={{ width: pageW }}>
               <FlipCard
-                width={width}
+                width={cardW}
                 height={height}
                 tilt={tilt}
                 label={hidden ? `${a.fip.name}, balance hidden` : `${a.fip.name} ${a.typeLabel} ending ${last4(a.maskedNumber)}, ${formatINR(a.balance)}`}
-                front={() => <BankFront a={a} hidden={hidden} width={width} height={height} tilt={tilt} sweep={sweep} />}
-                back={() => <BankBack a={a} width={width} height={height} />}
+                front={() => <BankFront a={a} hidden={hidden} width={cardW} height={height} tilt={tilt} sweep={sweep} />}
+                back={() => <BankBack a={a} width={cardW} height={height} />}
               />
             </View>
           ))}
@@ -250,7 +255,7 @@ function BankBack({ a, width, height }: { a: HomeAccount; width: number; height:
   const rows: [string, string][] = [
     ['Account', a.typeLabel],
     ['Number', `•••• ${last4(a.maskedNumber)}`],
-    ['Last updated', a.lastSyncedAt ? `${formatDate(a.lastSyncedAt)}, ${formatTime(a.lastSyncedAt)}` : '—'],
+    ['Last updated', a.lastSyncedAt ? `${formatDate(a.lastSyncedAt)}, ${formatTime(a.lastSyncedAt)}` : 'Not yet'],
   ];
   return (
     <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: shade(a.fip.color, -0.35), padding: 20 }}>

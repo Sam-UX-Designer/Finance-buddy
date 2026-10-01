@@ -200,7 +200,7 @@ function TypeSheet({ visible, t, onClose, onSave, busy }: { visible: boolean; t:
   const help: Partial<Record<TxnType, string>> = {
     EXPENSE: 'Money you spent.',
     INVESTMENT: 'Not counted as spending.',
-    LOAN_GIVEN: 'Money lent — tracked until it comes back.',
+    LOAN_GIVEN: 'Money lent. Tracked until it comes back.',
     LOAN_REPAID: 'Money paid back to you. Not income.',
     TRANSFER: 'Between your own accounts. Not income or spending.',
     INCOME: 'Money you earned or received.',

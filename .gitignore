@@ -12,3 +12,5 @@ apps/api/data/
 e2e/screenshots/
 
 .vercel/
+
+apps/mobile/assets/logos-fetched/

@@ -87,7 +87,7 @@ function lead(intent: Intent, results: ToolResult[], entities: Entities): { text
   if (!r) {
     if (intent === 'AFFORD') return { text: 'How much is the purchase? For example: “Can I afford ₹30,000?”', bullets: [] };
     return {
-      text: 'I can answer questions about your spending, balance, bills, goals, net worth and forecasts — using your connected accounts. Try one of these:',
+      text: 'I can answer questions about your spending, balance, bills, goals, net worth and forecasts, using your connected accounts. Try one of these:',
       bullets: [],
     };
   }
@@ -111,7 +111,7 @@ function lead(intent: Intent, results: ToolResult[], entities: Entities): { text
       const when = a.untilIsSalary ? 'before your next salary' : 'over the next 30 days';
       const text =
         a.verdict === 'YES'
-          ? `Yes — you can afford ${amt} and still keep your safety buffer ${when}.`
+          ? `Yes, you can afford ${amt} and still keep your safety buffer ${when}.`
           : a.verdict === 'TIGHT'
             ? `It's tight. ${amt} would dip into your ${formatINR(a.safetyBuffer, { decimals: 0 })} safety buffer ${when}.`
             : `Not comfortably. ${amt} is more than you can spare ${when}.`;
@@ -123,7 +123,7 @@ function lead(intent: Intent, results: ToolResult[], entities: Entities): { text
       if (r.insufficient) return { text: "You haven't set any goals yet. Add one in Plan and I'll track it for you.", bullets: [] };
       const goals = (r.data.goals as { onTrack: boolean }[]) ?? [];
       const on = goals.filter((g) => g.onTrack).length;
-      const text = on === goals.length ? "Yes — you're on track for all your goals." : `${on} of ${goals.length} goals are on track.`;
+      const text = on === goals.length ? "Yes, you're on track for all your goals." : `${on} of ${goals.length} goals are on track.`;
       return { text, bullets: facts };
     }
     default:

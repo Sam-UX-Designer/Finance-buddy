@@ -6,6 +6,7 @@ import {
   forecastContext,
   formatMonthKey,
   greetingFor,
+  istDateKey,
   istMonthKey,
   monthEndISO,
   monthSummary,
@@ -69,6 +70,15 @@ export async function homeDTO(ctx: AppContext, userId: string): Promise<HomeDTO>
     message = 'Some accounts could not be updated, so this picture is incomplete.';
   }
   const firstName = state.user.name?.split(' ')[0] ?? null;
+  const accountMap = new Map(rows.map((a) => [a.id, a]));
+  const todayKey = istDateKey(state.now);
+  const spends = state.txns
+    .filter((t) => t.type === 'EXPENSE' && t.direction === 'DEBIT')
+    .sort((a, b) => Date.parse(b.postedAt) - Date.parse(a.postedAt) || b.id.localeCompare(a.id));
+  const spentToday = spends.filter((t) => istDateKey(t.postedAt) === todayKey);
+  const invLines = (nw?.lines ?? []).filter((l) => l.kind === 'MUTUAL_FUNDS' || l.kind === 'TERM_DEPOSIT' || l.kind === 'EPF');
+  const invValue = invLines.reduce((s, l) => s + l.value, 0);
+  const invInvested = invLines.reduce((s, l) => s + (l.invested ?? l.value), 0);
   return {
     greeting: greetingFor(state.now),
     name: firstName,
@@ -113,6 +123,20 @@ export async function homeDTO(ctx: AppContext, userId: string): Promise<HomeDTO>
             sinceDate: change.sinceDate,
           }
         : null,
+    today: {
+      spent: spentToday.reduce((s, t) => s + t.amount, 0),
+      count: spentToday.length,
+      recent: spends.slice(0, 3).map((t) => toTxnDTO(t, accountMap)),
+    },
+    investments: invLines.length
+      ? {
+          value: invValue,
+          invested: invInvested,
+          gain: invValue - invInvested,
+          gainPct: invInvested > 0 ? Math.round(((invValue - invInvested) / invInvested) * 1000) / 10 : null,
+          lines: invLines.map((l) => ({ kind: l.kind, label: l.label, value: l.value, gain: l.gain, gainPct: l.gainPct })),
+        }
+      : null,
     sync: { health, lastSyncedAt, message },
     unreadNotifications: await unreadCount(ctx, userId),
   };

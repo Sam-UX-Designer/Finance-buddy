@@ -17,7 +17,8 @@
     "test": "npm run test -w @finance-buddy/core && npm run test -w @finance-buddy/api",
     "typecheck": "npm run typecheck -w @finance-buddy/core && npm run typecheck -w @finance-buddy/api && npm run typecheck -w @finance-buddy/mobile",
     "vercel-build": "node scripts/vercel-build.mjs",
-    "logos": "node scripts/gen-logos.mjs"
+    "logos": "node scripts/gen-logos.mjs",
+    "logos:fetch": "node scripts/fetch-logos.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

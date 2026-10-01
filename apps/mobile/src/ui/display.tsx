@@ -261,7 +261,7 @@ export function KeyValue({ label, value, onPress, valueTone }: { label: string; 
 
 export function GainText({ pct }: { pct: number | null }) {
   const { c } = useTheme();
-  if (pct == null) return <T v="caption" tone="tertiary">—</T>;
+  if (pct == null) return <T v="caption" tone="tertiary">-</T>;
   const up = pct >= 0;
   return (
     <T v="captionMedium" color={up ? c.positive : c.negative}>

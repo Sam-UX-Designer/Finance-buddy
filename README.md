@@ -115,9 +115,14 @@ e2e              Browser walkthrough
 - SI only states facts produced by engine tools. If there isn't enough data, it says so.
 - No bank passwords, ever. Sensitive fields are encrypted at rest (AES-256-GCM).
 
-## Adding brand and bank logos
+## Brand and bank logos
 
-Drop logo images (square PNG, ideally 256×256) into `apps/mobile/assets/logos/`, named by key:
+Every Vercel build downloads the real app icon for each merchant and bank from its Google Play listing
+(website icon as a fallback) with `scripts/fetch-logos.mjs`. Locally, run `npm run logos:fetch`.
+The build log lists where each logo came from; anything not found falls back to a 3D category icon
+(merchants) or the bank's mark.
+
+To use your own image instead, drop it (square PNG, ideally 256×256) into `apps/mobile/assets/logos/`, named by key:
 
 - Merchants: the merchant key from `packages/core/src/merchants.ts`, e.g. `swiggy.png`, `blinkit.png`, `rapido.png`.
 - Banks: `bank-<id>`, e.g. `bank-hdfc.png`, `bank-icici.png`, `bank-axis.png`, `bank-sbi.png`, `bank-cams.png`, `bank-epfo.png`.

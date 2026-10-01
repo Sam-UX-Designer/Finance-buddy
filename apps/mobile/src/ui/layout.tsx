@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ScrollView,
   View,
+  useWindowDimensions,
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
@@ -23,8 +24,22 @@ import { Button, IconButton } from './controls';
 import { Press, Row, T } from './primitives';
 
 export const PAGE_X = space.xl;
-/** Content width cap so web/tablet layouts stay phone-like and readable. */
+/** Content width cap on phones and narrow windows. */
 export const MAX_WIDTH = 560;
+/** Content width cap for list-style screens in the wide web layout. */
+export const WIDE_MAX_WIDTH = 760;
+/** Width of the left navigation sidebar in the wide web layout. */
+export const SIDEBAR_W = 248;
+
+/** True when the app runs as a desktop-width web app (left sidebar instead of the bottom bar). */
+export function useWide(): boolean {
+  const { width } = useWindowDimensions();
+  return Platform.OS === 'web' && width >= 1024;
+}
+
+/** Extra bottom space tab screens leave so content can scroll clear of the floating tab bar. */
+export const TabBarInset = createContext(0);
+export const useTabBarInset = () => useContext(TabBarInset);
 
 export function Screen({
   children,
@@ -36,6 +51,7 @@ export function Screen({
   edges = ['top'],
   contentStyle,
   scrollProps,
+  maxWidth,
 }: {
   children: ReactNode;
   scroll?: boolean;
@@ -46,12 +62,17 @@ export function Screen({
   edges?: ('top' | 'bottom')[];
   contentStyle?: StyleProp<ViewStyle>;
   scrollProps?: ScrollViewProps;
+  /** Overrides the content width cap (e.g. a two-column Home on wide screens). */
+  maxWidth?: number;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const wide = useWide();
+  const tabInset = useTabBarInset();
   const pad = padded ? PAGE_X : 0;
+  const width = maxWidth ?? (wide ? WIDE_MAX_WIDTH : MAX_WIDTH);
   const inner = (
-    <View style={[{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: pad }, contentStyle]}>{children}</View>
+    <View style={[{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: pad }, contentStyle]}>{children}</View>
   );
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: edges.includes('top') ? insets.top : 0 }}>
@@ -60,7 +81,7 @@ export function Screen({
           <ScrollView
             {...scrollProps}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: space.xxxl + (edges.includes('bottom') ? insets.bottom : 0) }}
+            contentContainerStyle={{ paddingBottom: space.xxxl + tabInset + (edges.includes('bottom') ? insets.bottom : 0) }}
             refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.textSecondary} /> : undefined}
           >
             {inner}
@@ -69,7 +90,7 @@ export function Screen({
           <View style={{ flex: 1 }}>{inner}</View>
         )}
         {footer ? (
-          <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: space.md, paddingBottom: Math.max(insets.bottom, space.lg) }}>
+          <View style={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: space.md, paddingBottom: Math.max(insets.bottom, space.lg) }}>
             {footer}
           </View>
         ) : null}

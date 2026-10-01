@@ -160,6 +160,15 @@ export function useAsk() {
   });
 }
 
+/** Starts a new SI conversation (clears the chat history; the weekly brief stays). */
+export function useClearSI() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<SIHomeDTO>('/v1/si/clear', { method: 'POST' }),
+    onSuccess: (r) => qc.setQueryData(keys.si, r),
+  });
+}
+
 export function useSync() {
   const invalidate = useInvalidateFinance();
   return useMutation({ mutationFn: () => api<JobDTO>('/v1/sync', { method: 'POST' }), onSettled: () => void invalidate() });

@@ -17,7 +17,7 @@ export default function UpcomingScreen() {
       ) : !d ? (
         <LoadingState />
       ) : d.items.length === 0 ? (
-        <EmptyState title="Nothing due soon" body="We list bills, rent, subscriptions and SIPs here once they repeat at least three times — or when you mark one as recurring." />
+        <EmptyState title="Nothing due soon" body="We list bills, rent, subscriptions and SIPs here once they repeat at least three times, or when you mark one as recurring." />
       ) : (
         <>
           <Card muted>

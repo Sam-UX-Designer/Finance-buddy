@@ -181,6 +181,16 @@ export interface HomeDTO {
     changePct: number | null;
     sinceDate: string;
   } | null;
+  /** Spending today plus the latest few purchases (any day), newest first. */
+  today: { spent: Paise; count: number; recent: TxnDTO[] };
+  /** Investments at a glance: current value and returns so far. */
+  investments: {
+    value: Paise;
+    invested: Paise;
+    gain: Paise;
+    gainPct: number | null;
+    lines: { kind: string; label: string; value: Paise; gain: Paise | null; gainPct: number | null }[];
+  } | null;
   sync: { health: SyncHealth; lastSyncedAt: string | null; message: string | null };
   unreadNotifications: number;
 }

@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
 import { DeviceMotion } from 'expo-sensors';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
+import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
 import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
 import { space } from '@/theme/tokens';
+import { BRAND_LOGOS } from '@/ui/brands';
 import { BankLogo, FipMark, Money } from '@/ui/display';
+import { PAGE_X, useWide } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
 
 /**
@@ -17,6 +19,7 @@ import { Row, T } from '@/ui/primitives';
  */
 
 const ND = Platform.OS !== 'web';
+const WEB = Platform.OS === 'web';
 const RATIO = 1.586; // bank card proportions
 const RADIUS = 22;
 /** Largest card width (wide screens show several cards side by side). */
@@ -36,9 +39,12 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const scroller = useRef<ScrollView>(null);
   const tilt = useMotionTilt(!reduceMotion);
   const sweep = useSweep(!reduceMotion);
-  // Phones: one full-width card per page. Wide screens: real card size, several side by side.
-  const cardW = Math.min(width, MAX_CARD_W);
-  const pageW = cardW < width ? cardW + space.lg : cardW;
+  const wide = useWide();
+  // Phones: the carousel runs edge to edge and each page keeps the page margin on both sides, so a
+  // card never touches the screen edge while swiping. Wide screens: real card size, side by side.
+  const bleed = wide ? 0 : PAGE_X;
+  const cardW = wide ? Math.min(width, MAX_CARD_W) : Math.max(0, width - bleed * 2);
+  const pageW = wide ? (cardW < width ? cardW + space.lg : cardW) : width;
   const height = Math.max(190, Math.round(cardW / RATIO));
   const pages = 1 + accounts.length;
 
@@ -53,7 +59,7 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const goTo = (p: number) => scroller.current?.scrollTo({ x: p * pageW, animated: !reduceMotion });
 
   return (
-    <View onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))}>
+    <View style={{ marginHorizontal: -bleed }} onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))}>
       {width ? (
         <ScrollView
           ref={scroller}
@@ -64,7 +70,7 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
           scrollEventThrottle={32}
           accessibilityLabel="Balance cards"
         >
-          <View style={{ width: pageW }}>
+          <View style={{ width: pageW, paddingHorizontal: bleed }}>
             <FlipCard
               width={cardW}
               height={height}
@@ -77,7 +83,7 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
             />
           </View>
           {accounts.map((a) => (
-            <View key={a.id} style={{ width: pageW }}>
+            <View key={a.id} style={{ width: pageW, paddingHorizontal: bleed }}>
               <FlipCard
                 width={cardW}
                 height={height}
@@ -152,14 +158,14 @@ function FlipCard({ width, height, tilt, label, front, back }: { width: number; 
 function useTotalColors() {
   const { scheme } = useTheme();
   return scheme === 'dark'
-    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22 }
-    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9 };
+    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22, ink: 'rgba(255,255,255,0.07)' }
+    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9, ink: 'rgba(10,10,11,0.055)' };
 }
 
 function TotalFront({ total, accounts, hidden, onToggleHidden, width, height, tilt, sweep, active }: { total: Paise; accounts: HomeAccount[]; hidden: boolean; onToggleHidden: () => void; width: number; height: number; tilt: Tilt; sweep: Animated.Value; active: boolean }) {
   const k = useTotalColors();
   return (
-    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare}>
+    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare} pattern={{ mark: null, ink: k.ink }}>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body" color={k.sub}>
           Total Balance
@@ -230,7 +236,16 @@ function TotalBack({ accounts, hidden, width, height, tilt, sweep }: { accounts:
 
 function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; hidden: boolean; width: number; height: number; tilt: Tilt; sweep: Animated.Value }) {
   return (
-    <CardSurface width={width} height={height} from={shade(a.fip.color, 0.18)} to={shade(a.fip.color, -0.28)} tilt={tilt} sweep={sweep} glare={0.28}>
+    <CardSurface
+      width={width}
+      height={height}
+      from={shade(a.fip.color, 0.18)}
+      to={shade(a.fip.color, -0.28)}
+      tilt={tilt}
+      sweep={sweep}
+      glare={0.28}
+      pattern={{ mark: BRAND_LOGOS[a.fip.id]?.path ?? null, ink: 'rgba(255,255,255,0.09)' }}
+    >
       <Row style={{ justifyContent: 'space-between' }}>
         <Row gap={10}>
           <BankLogo fip={a.fip} size={30} />
@@ -291,8 +306,31 @@ function BankBack({ a, width, height }: { a: HomeAccount; width: number; height:
   );
 }
 
-/** Card background (soft diagonal light falloff) with the moving shine on top. */
-function CardSurface({ width, height, from, to, border, tilt, sweep, glare, children }: { width: number; height: number; from: string; to: string; border?: string; tilt: Tilt; sweep: Animated.Value; glare: number; children: ReactNode }) {
+/** Card background (soft diagonal light falloff), a logo watermark, and the moving shine on top. */
+function CardSurface({
+  width,
+  height,
+  from,
+  to,
+  border,
+  tilt,
+  sweep,
+  glare,
+  pattern,
+  children,
+}: {
+  width: number;
+  height: number;
+  from: string;
+  to: string;
+  border?: string;
+  tilt: Tilt;
+  sweep: Animated.Value;
+  glare: number;
+  /** Watermark: a 24×24 logo path (null = the Finance Buddy mark) repeated at low opacity. */
+  pattern?: { mark: string | null; ink: string };
+  children: ReactNode;
+}) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const g = Math.max(width, height) * 1.3;
   const glareX = tilt.x.interpolate({ inputRange: [-1, 1], outputRange: [-width * 0.45, width * 0.45] });
@@ -301,46 +339,106 @@ function CardSurface({ width, height, from, to, border, tilt, sweep, glare, chil
     sweep.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.9, width * 1.3] }),
     tilt.x.interpolate({ inputRange: [-1, 1], outputRange: [-width * 0.15, width * 0.15] }),
   );
+  // Web draws the gradients with CSS (dependable in every browser); phones use SVG. The base colour
+  // is always set, so the card keeps its colour even if a gradient fails to draw.
+  const css = (backgroundImage: string) => (WEB ? ({ backgroundImage } as unknown as ViewStyle) : null);
   return (
-    <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', borderWidth: border ? 1 : 0, borderColor: border }}>
-      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id={`bg${id}`} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={from} />
-            <Stop offset="1" stopColor={to} />
-          </LinearGradient>
-        </Defs>
-        <Rect width={width} height={height} fill={`url(#bg${id})`} />
-      </Svg>
+    <View style={[{ width, height, borderRadius: RADIUS, overflow: 'hidden', borderWidth: border ? 1 : 0, borderColor: border, backgroundColor: to }, css(`linear-gradient(135deg, ${from} 0%, ${to} 100%)`)]}>
+      {WEB ? null : (
+        <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id={`bg${id}`} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={from} />
+              <Stop offset="1" stopColor={to} />
+            </LinearGradient>
+          </Defs>
+          <Rect width={width} height={height} fill={`url(#bg${id})`} />
+        </Svg>
+      )}
+      {pattern ? <Watermark width={width} height={height} mark={pattern.mark} ink={pattern.ink} tilt={tilt} /> : null}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View style={{ position: 'absolute', width: g, height: g, left: (width - g) / 2, top: (height - g) / 2, transform: [{ translateX: glareX }, { translateY: glareY }] }}>
-          <Svg width={g} height={g}>
-            <Defs>
-              <RadialGradient id={`gl${id}`} cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={glare} />
-                <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={g / 2} cy={g / 2} r={g / 2} fill={`url(#gl${id})`} />
-          </Svg>
+        <Animated.View
+          style={[
+            { position: 'absolute', width: g, height: g, left: (width - g) / 2, top: (height - g) / 2, transform: [{ translateX: glareX }, { translateY: glareY }] },
+            css(`radial-gradient(closest-side, rgba(255,255,255,${glare}) 0%, rgba(255,255,255,0) 100%)`),
+          ]}
+        >
+          {WEB ? null : (
+            <Svg width={g} height={g}>
+              <Defs>
+                <RadialGradient id={`gl${id}`} cx="50%" cy="50%" r="50%">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity={glare} />
+                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle cx={g / 2} cy={g / 2} r={g / 2} fill={`url(#gl${id})`} />
+            </Svg>
+          )}
         </Animated.View>
-        <Animated.View style={{ position: 'absolute', top: -height, width: width * 0.45, height: height * 3, transform: [{ translateX: bandX }, { rotate: '22deg' }] }}>
-          <Svg width="100%" height="100%">
-            <Defs>
-              <LinearGradient id={`sw${id}`} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
-                <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.22} />
-                <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill={`url(#sw${id})`} />
-          </Svg>
+        <Animated.View
+          style={[
+            { position: 'absolute', top: -height, width: width * 0.45, height: height * 3, transform: [{ translateX: bandX }, { rotate: '22deg' }] },
+            css('linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0) 100%)'),
+          ]}
+        >
+          {WEB ? null : (
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id={`sw${id}`} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+                  <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.22} />
+                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+                </LinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill={`url(#sw${id})`} />
+            </Svg>
+          )}
         </Animated.View>
       </View>
       <View style={{ flex: 1, padding: 20 }}>{children}</View>
     </View>
   );
 }
+
+/**
+ * Airbnb-style watermark: the logo repeated in staggered diagonal rows at 5–10% opacity. It drifts
+ * a little against the tilt (parallax), so the pattern catches the shine as the phone moves.
+ */
+const Watermark = memo(function Watermark({ width, height, mark, ink, tilt }: { width: number; height: number; mark: string | null; ink: string; tilt: Tilt }) {
+  const pad = 28; // extra room so the drift never reveals an edge
+  const W = width + pad * 2;
+  const H = height + pad * 2;
+  const cell = 36;
+  const rowH = cell * 0.78;
+  const items: { x: number; y: number; s: number }[] = [];
+  for (let r = 0; r * rowH < H + rowH; r++) {
+    for (let c = 0; c * cell < W + cell; c++) {
+      // Every third logo is a little larger, like the Airbnb card.
+      const s = (r * 2 + c) % 3 === 0 ? 19 : 14;
+      items.push({ x: c * cell + (r % 2 ? cell / 2 : 0), y: r * rowH, s });
+    }
+  }
+  const dx = tilt.x.interpolate({ inputRange: [-1, 1], outputRange: [pad * 0.6, -pad * 0.6] });
+  const dy = tilt.y.interpolate({ inputRange: [-1, 1], outputRange: [pad * 0.6, -pad * 0.6] });
+  return (
+    <Animated.View pointerEvents="none" style={{ position: 'absolute', left: -pad, top: -pad, width: W, height: H, transform: [{ translateX: dx }, { translateY: dy }] }}>
+      <Svg width={W} height={H}>
+        {items.map((it, i) => (
+          <G key={i} transform={`translate(${it.x} ${it.y}) rotate(-18) translate(${-it.s / 2} ${-it.s / 2}) scale(${it.s / 24})`}>
+            {mark ? (
+              <Path d={mark} fill={ink} />
+            ) : (
+              <>
+                <Circle cx={8.5} cy={12} r={7} fill={ink} />
+                <Circle cx={15.5} cy={12} r={7} fill={ink} />
+              </>
+            )}
+          </G>
+        ))}
+      </Svg>
+    </Animated.View>
+  );
+});
 
 /** The contact chip printed on bank cards. */
 function CardChip() {

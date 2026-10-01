@@ -32,27 +32,21 @@ export interface Palette {
   infoSoft: string;
   siCard: string;
   siCardBorder: string;
-  /** Translucent fills for small controls on the ambient backdrop (chips, fields). */
-  glassFill: string;
-  glassFillStrong: string;
-  glassEdge: string;
-  /** Stained-glass tint for SI's cards. */
-  siTint: string;
   tabBar: string;
   overlay: string;
   skeleton: string;
 }
 
 export const light: Palette = {
-  bg: '#FFFFFF',
+  bg: '#F2F2F7',
   surface: '#FFFFFF',
-  surfaceMuted: '#F5F5F6',
-  surfacePressed: '#EFEFF1',
-  border: '#ECECEE',
-  divider: '#F1F1F3',
+  surfaceMuted: '#EDEDF0',
+  surfacePressed: '#E5E5EA',
+  border: '#E5E5EA',
+  divider: '#EDEDF0',
   text: '#0A0A0B',
   textSecondary: '#6B6B73',
-  textTertiary: '#9C9CA3',
+  textTertiary: '#8E8E93',
   inverseText: '#FFFFFF',
   hero: '#0B0B0C',
   heroText: '#FFFFFF',
@@ -72,25 +66,21 @@ export const light: Palette = {
   infoSoft: '#ECF2FF',
   siCard: '#F4F1FF',
   siCardBorder: '#ECE7FF',
-  glassFill: 'rgba(255,255,255,0.55)',
-  glassFillStrong: 'rgba(255,255,255,0.78)',
-  glassEdge: 'rgba(255,255,255,0.85)',
-  siTint: 'rgba(237,233,255,0.62)',
   tabBar: '#FFFFFF',
   overlay: 'rgba(0,0,0,0.4)',
-  skeleton: '#F0F0F2',
+  skeleton: '#E5E5EA',
 };
 
 export const dark: Palette = {
   bg: '#000000',
-  surface: '#0F0F11',
-  surfaceMuted: '#17171A',
-  surfacePressed: '#1E1E22',
-  border: '#1F1F23',
-  divider: '#18181B',
+  surface: '#1C1C1E',
+  surfaceMuted: '#2C2C2E',
+  surfacePressed: '#3A3A3C',
+  border: '#2C2C2E',
+  divider: '#2C2C2E',
   text: '#FFFFFF',
-  textSecondary: '#9A9AA2',
-  textTertiary: '#66666D',
+  textSecondary: '#98989F',
+  textTertiary: '#6C6C70',
   inverseText: '#0A0A0B',
   hero: '#141416',
   heroText: '#FFFFFF',
@@ -110,13 +100,9 @@ export const dark: Palette = {
   infoSoft: '#111C33',
   siCard: '#121117',
   siCardBorder: '#1F1C2B',
-  glassFill: 'rgba(255,255,255,0.07)',
-  glassFillStrong: 'rgba(255,255,255,0.11)',
-  glassEdge: 'rgba(255,255,255,0.12)',
-  siTint: 'rgba(76,60,140,0.30)',
   tabBar: '#000000',
   overlay: 'rgba(0,0,0,0.6)',
-  skeleton: '#1A1A1D',
+  skeleton: '#1C1C1E',
 };
 
 export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 } as const;

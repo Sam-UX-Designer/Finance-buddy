@@ -118,9 +118,9 @@ export function Chip({ label, selected, onPress, icon }: { label: string; select
         height: 34,
         paddingHorizontal: 14,
         borderRadius: radius.md,
-        backgroundColor: selected ? c.primary : c.glassFill,
+        backgroundColor: selected ? c.primary : c.surface,
         borderWidth: 1,
-        borderColor: selected ? c.primary : c.glassEdge,
+        borderColor: selected ? c.primary : c.border,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
@@ -167,9 +167,9 @@ export function Segmented<K extends string>({ options, value, onChange }: { opti
               borderRadius: radius.md,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: selected ? c.glassFillStrong : c.glassFill,
+              backgroundColor: c.surface,
               borderWidth: 1,
-              borderColor: selected ? c.text : c.glassEdge,
+              borderColor: selected ? c.text : c.border,
             }}
           >
             <T v={selected ? 'bodySemibold' : 'bodyMedium'} tone={selected ? 'primary' : 'secondary'}>
@@ -199,7 +199,7 @@ export const TextField = forwardRef<TextInput, TextInputProps & { label?: string
             borderRadius: radius.md,
             borderWidth: 1,
             borderColor: error ? c.negative : focused ? c.text : c.border,
-            backgroundColor: c.glassFillStrong,
+            backgroundColor: c.surface,
             paddingHorizontal: space.lg,
             gap: space.sm,
           }}

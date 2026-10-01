@@ -19,7 +19,6 @@ import { useAccounts, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { Button, Chip, ChipRow, IconButton, webInputReset } from '@/ui/controls';
-import { AmbientBackground } from '@/ui/Ambient';
 import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
 import { TxnRow } from '@/features/TxnRow';
@@ -84,10 +83,9 @@ export default function ActivityScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      <AmbientBackground />
       <View style={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
         <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />
-        <Row style={{ backgroundColor: c.glassFillStrong, borderWidth: 1, borderColor: c.glassEdge, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
+        <Row style={{ backgroundColor: c.surface, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
           <Search size={18} color={c.textTertiary} />
           <TextInput
             value={query}
@@ -136,12 +134,7 @@ export default function ActivityScreen() {
             return (
               <View
                 style={{
-                  backgroundColor: c.glassFillStrong,
-                  borderColor: c.glassEdge,
-                  borderLeftWidth: 1,
-                  borderRightWidth: 1,
-                  borderTopWidth: first ? 1 : 0,
-                  borderBottomWidth: last ? 1 : 0,
+                  backgroundColor: c.surface,
                   borderTopLeftRadius: first ? radius.lg : 0,
                   borderTopRightRadius: first ? radius.lg : 0,
                   borderBottomLeftRadius: last ? radius.lg : 0,

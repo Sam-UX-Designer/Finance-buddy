@@ -13,8 +13,7 @@ import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, us
 import { IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
 import { SIOrb } from '@/ui/SIOrb';
-import { AmbientBackground } from '@/ui/Ambient';
-import { Press, Row, T } from '@/ui/primitives';
+import { Card, Press, Row, T } from '@/ui/primitives';
 
 /** SI: ask and receive financial intelligence (Blueprint §12). Answers come from Finance Engine tools. */
 export default function SIScreen() {
@@ -79,6 +78,8 @@ export default function SIScreen() {
   };
 
   const header = HEADER_H + insets.top;
+  // Quick prompts sit in a row above the input until the conversation starts (like ChatGPT).
+  const showSuggestions = !!si.data && !si.data.messages.length && !pending && !keyboard;
   const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
   const clearChat = () => {
     setError(null);
@@ -87,7 +88,6 @@ export default function SIScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <AmbientBackground />
       <View style={{ flex: 1 }}>
         {si.error && !si.data ? (
           <View style={{ flex: 1, paddingTop: header }}>
@@ -101,11 +101,11 @@ export default function SIScreen() {
           <ScrollView
             ref={scroll}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: header + space.lg, paddingBottom: inputBottom + INPUT_H + space.xl }}
+            contentContainerStyle={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: header + space.lg, paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H : 0) + space.xl }}
           >
             {/* Proactive brief */}
             <FadeIn>
-              <GlassSurface variant="card" radius={radius.lg} style={{ padding: space.lg, gap: space.sm }}>
+              <Card style={{ gap: space.sm }}>
                 <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
                 {si.data.brief.enoughData ? (
                   <>
@@ -119,19 +119,8 @@ export default function SIScreen() {
                     I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
                   </T>
                 )}
-              </GlassSurface>
+              </Card>
             </FadeIn>
-
-            <View style={{ marginTop: space.xl, gap: space.sm }}>
-              <T v="small" tone="secondary">
-                You can ask me things like:
-              </T>
-              {si.data.suggestions.map((s) => (
-                <Press key={s} onPress={() => send(s)} accessibilityRole="button" style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: c.glassEdge, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.glassFill }}>
-                  <T v="small">{s}</T>
-                </Press>
-              ))}
-            </View>
 
             {/* Conversation */}
             <View style={{ marginTop: space.xl, gap: space.lg }}>
@@ -181,6 +170,29 @@ export default function SIScreen() {
 
         {/* Input: floats above the tab bar */}
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
+          {showSuggestions ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              accessibilityLabel="Suggested questions"
+              style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
+              contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
+            >
+              {si.data!.suggestions.map((q) => (
+                <Press
+                  key={q}
+                  onPress={() => send(q)}
+                  accessibilityRole="button"
+                  style={{ height: SUGGEST_H - space.sm, borderRadius: (SUGGEST_H - space.sm) / 2, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
+                >
+                  <T v="small" numberOfLines={1}>
+                    {q}
+                  </T>
+                </Press>
+              ))}
+            </ScrollView>
+          ) : null}
           <GlassSurface radius={INPUT_H / 2} style={{ width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center', height: INPUT_H, flexDirection: 'row', alignItems: 'center', paddingLeft: space.lg, paddingRight: 6, gap: space.sm }}>
             <TextInput
               ref={input}
@@ -212,6 +224,7 @@ export default function SIScreen() {
 
 const HEADER_H = 60;
 const INPUT_H = 52;
+const SUGGEST_H = 46;
 
 interface SpeechRec {
   lang: string;
@@ -261,7 +274,7 @@ function Message({ m, onFollowUp }: { m: SIMessageDTO; onFollowUp: (q: string) =
         ))}
         <Row gap={space.sm} style={{ flexWrap: 'wrap', marginTop: 2 }}>
           {m.followUps.slice(0, 2).map((f) => (
-            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: c.glassEdge, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.glassFill }}>
+            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
               <T v="small">{f}</T>
             </Press>
           ))}

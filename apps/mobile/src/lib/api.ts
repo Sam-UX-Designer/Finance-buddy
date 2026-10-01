@@ -43,7 +43,16 @@ export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
-export async function api<T>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
+// Requests wait until the saved session is restored, so a screen opened directly (a page refresh or
+// a deep link) never fires before its token is loaded.
+let markRestored: () => void = () => undefined;
+const sessionRestored = new Promise<void>((resolve) => (markRestored = resolve));
+export function setSessionRestored() {
+  markRestored();
+}
+
+export async function api<T>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal; beforeSession?: boolean } = {}): Promise<T> {
+  if (!init.beforeSession) await sessionRestored;
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {

@@ -20,7 +20,6 @@ import { ArrowLeft, CircleAlert, Inbox, RefreshCw, TriangleAlert, WifiOff, X } f
 import { useTheme } from '@/theme/ThemeProvider';
 import { motion, radius, space } from '@/theme/tokens';
 import { ApiRequestError, errorMessage } from '@/lib/api';
-import { AmbientBackground } from './Ambient';
 import { Button, IconButton } from './controls';
 import { GlassSurface } from './glass';
 import { Press, Row, T } from './primitives';
@@ -57,6 +56,7 @@ export function Screen({
   title,
   titleRight,
   compactTitle,
+  overlay,
 }: {
   children: ReactNode;
   scroll?: boolean;
@@ -74,6 +74,8 @@ export function Screen({
   titleRight?: ReactNode;
   /** Title for the collapsed header when the screen draws its own large title. */
   compactTitle?: string;
+  /** Floating content drawn above the screen (positioned by the caller). */
+  overlay?: ReactNode;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -92,7 +94,6 @@ export function Screen({
   );
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <AmbientBackground />
       <View style={{ flex: 1, paddingTop: edges.includes('top') ? insets.top : 0 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {scroll ? (
@@ -117,6 +118,7 @@ export function Screen({
         </KeyboardAvoidingView>
       </View>
       {headerTitle && scroll ? <CompactHeader title={headerTitle} scrollY={scrollY} /> : null}
+      {overlay}
     </View>
   );
 }

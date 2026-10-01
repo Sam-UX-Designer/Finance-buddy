@@ -10,9 +10,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { Button } from '@/ui/controls';
 import { FipMark, Money } from '@/ui/display';
-import { GlassSurface } from '@/ui/glass';
 import { Banner, FadeIn, Screen, Skeleton } from '@/ui/layout';
-import { Row, T } from '@/ui/primitives';
+import { Card, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
 
 /**
@@ -70,7 +69,7 @@ export default function SuccessScreen() {
           ) : null}
           {finds.map((f, i) => (
             <FadeIn key={f.key} delay={700 + i * 220}>
-              <GlassSurface variant="card" radius={radius.lg} tint={f.key === 'insight' ? c.siTint : undefined} style={{ padding: space.lg, marginBottom: space.md }}>
+              <Card style={{ marginBottom: space.md }}>
                 <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
                   <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: f.soft, alignItems: 'center', justifyContent: 'center' }}>{f.icon}</View>
                   <View style={{ flex: 1 }}>
@@ -80,7 +79,7 @@ export default function SuccessScreen() {
                     </T>
                   </View>
                 </Row>
-              </GlassSurface>
+              </Card>
             </FadeIn>
           ))}
         </>
@@ -111,7 +110,7 @@ function Hero({ d, banks }: { d: HomeDTO; banks: HomeDTO['balance']['accounts'] 
   const total = d.wealth?.netWorth ?? d.balance.total;
   const count = d.balance.accountCount;
   return (
-    <GlassSurface variant="card" radius={radius.xl} style={{ padding: space.xl, marginTop: space.xl }}>
+    <Card style={{ padding: space.xl, marginTop: space.xl, borderRadius: radius.xl }}>
       <T v="small" tone="secondary">
         {d.wealth ? 'Your net worth today' : 'Your money today'}
       </T>
@@ -129,7 +128,7 @@ function Hero({ d, banks }: { d: HomeDTO; banks: HomeDTO['balance']['accounts'] 
       <Row style={{ justifyContent: 'space-between' }}>
         <Row>
           {banks.slice(0, 5).map((a, i) => (
-            <View key={a.fip.id} style={{ marginLeft: i ? -10 : 0, borderRadius: 12, borderWidth: 2, borderColor: c.glassEdge }}>
+            <View key={a.fip.id} style={{ marginLeft: i ? -10 : 0, borderRadius: 12, borderWidth: 2, borderColor: c.surface }}>
               <FipMark fip={a.fip} size={32} />
             </View>
           ))}
@@ -138,7 +137,7 @@ function Hero({ d, banks }: { d: HomeDTO; banks: HomeDTO['balance']['accounts'] 
           {`${count} account${count === 1 ? '' : 's'} connected`}
         </T>
       </Row>
-    </GlassSurface>
+    </Card>
   );
 }
 

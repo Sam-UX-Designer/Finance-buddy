@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { MeDTO, SessionResponse } from '@finance-buddy/core';
-import { api, ApiRequestError, errorMessage, setApiToken, setUnauthorizedHandler } from './api';
+import { api, ApiRequestError, errorMessage, setApiToken, setSessionRestored, setUnauthorizedHandler } from './api';
 import { storage } from './storage';
 
 const TOKEN_KEY = 'financebuddy.session';
@@ -45,7 +45,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (saved) {
         setApiToken(saved);
         try {
-          const m = await api<MeDTO>('/v1/me');
+          const m = await api<MeDTO>('/v1/me', { beforeSession: true });
           setToken(saved);
           setMe(m);
         } catch (e) {
@@ -59,6 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+      setSessionRestored();
       setReady(true);
     })();
   }, [clear, attempt]);

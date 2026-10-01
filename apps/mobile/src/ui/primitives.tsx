@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Platform,
@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space, type as typeScale, type TypeVariant } from '@/theme/tokens';
-import { GlassSurface } from './glass';
 import type { Palette } from '@/theme/tokens';
 
 type Tone = 'primary' | 'secondary' | 'tertiary' | 'inverse' | 'positive' | 'negative' | 'warning' | 'loan' | 'info' | 'heroSecondary';
@@ -61,6 +60,12 @@ export function T({ v = 'body', tone = 'primary', color, align, style, ...rest }
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** Pressable with subtle scale + opacity feedback (Blueprint §19: cards have press feedback). */
+/**
+ * A long-press handler shared by every pressable inside a region (e.g. Home's cards, where a long
+ * press enters edit mode). A long press then never also counts as a tap.
+ */
+export const LongPressContext = createContext<(() => void) | undefined>(undefined);
+
 export function Press({
   children,
   style,
@@ -69,6 +74,7 @@ export function Press({
   ...rest
 }: Omit<PressableProps, 'style' | 'children'> & { children: ReactNode; style?: StyleProp<ViewStyle>; scaleTo?: number }) {
   const { reduceMotion } = useTheme();
+  const regionLongPress = useContext(LongPressContext);
   const scale = useRef(new Animated.Value(1)).current;
   const [pressed, setPressed] = useState(false);
   const to = (v: number) => {
@@ -78,6 +84,7 @@ export function Press({
   return (
     <AnimatedPressable
       {...rest}
+      onLongPress={rest.onLongPress ?? regionLongPress}
       disabled={disabled}
       onPressIn={(e) => {
         setPressed(true);
@@ -96,12 +103,13 @@ export function Press({
   );
 }
 
-/** Content card: a thin frosted material over the ambient backdrop (HIG: materials in the content layer). */
-export function Card({ style, children, muted, tint, ...rest }: ViewProps & { muted?: boolean; tint?: string }) {
+/** Content card: a plain solid surface (glass is kept for bars and controls that float). */
+export function Card({ style, children, muted, ...rest }: ViewProps & { muted?: boolean }) {
+  const { c } = useTheme();
   return (
-    <GlassSurface {...rest} variant={muted ? 'pill' : 'card'} radius={radius.lg} tint={tint} style={[{ padding: space.lg }, style]}>
+    <View {...rest} style={[{ backgroundColor: muted ? c.surfaceMuted : c.surface, borderRadius: radius.lg, padding: space.lg }, style]}>
       {children}
-    </GlassSurface>
+    </View>
   );
 }
 

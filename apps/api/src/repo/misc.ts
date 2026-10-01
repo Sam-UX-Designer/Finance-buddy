@@ -8,6 +8,7 @@ import type {
   Holdings,
   MFHolding,
   NotificationDTO,
+  SIConversationDTO,
   SIMessageDTO,
   TermDeposit,
 } from '@finance-buddy/core';
@@ -201,16 +202,63 @@ export async function markRead(ctx: AppContext, userId: string, id?: string): Pr
 }
 
 // ── SI conversations ─────────────────────────────────────────────────
+/** The chat the person was last active in (a just-started empty chat counts as active). */
+async function latestConversation(ctx: AppContext, userId: string): Promise<{ id: string; messages: number } | undefined> {
+  const row = await ctx.db.get<{ id: string; messages: number }>(
+    `SELECT c.id, count(m.id)::int AS messages FROM si_conversations c
+     LEFT JOIN si_messages m ON m.conversation_id = c.id
+     WHERE c.user_id = ? GROUP BY c.id, c.created_at
+     ORDER BY max(coalesce(m.created_at, c.created_at)) DESC LIMIT 1`,
+    userId,
+  );
+  return row ? { id: row.id, messages: Number(row.messages) } : undefined;
+}
+
 export async function getOrCreateConversation(ctx: AppContext, userId: string, id?: string): Promise<string> {
   if (id) {
     const row = await ctx.db.get<{ id: string }>('SELECT id FROM si_conversations WHERE user_id = ? AND id = ?', userId, id);
     if (row) return row.id;
   }
-  const latest = await ctx.db.get<{ id: string }>('SELECT id FROM si_conversations WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', userId);
-  if (latest && !id) return latest.id;
-  const newConv = newId('conv');
-  await ctx.db.run('INSERT INTO si_conversations (id, user_id, created_at) VALUES (?, ?, ?)', newConv, userId, nowISO(ctx));
-  return newConv;
+  // An unknown id (deleted chat, another person's) falls back to the latest chat.
+  const latest = await latestConversation(ctx, userId);
+  if (latest) return latest.id;
+  return createConversation(ctx, userId);
+}
+
+async function createConversation(ctx: AppContext, userId: string): Promise<string> {
+  const conv = newId('conv');
+  await ctx.db.run('INSERT INTO si_conversations (id, user_id, created_at) VALUES (?, ?, ?)', conv, userId, nowISO(ctx));
+  return conv;
+}
+
+/** Starts a new chat; the old ones stay in history. An empty latest chat is reused, so no blanks pile up. */
+export async function newConversation(ctx: AppContext, userId: string): Promise<string> {
+  const latest = await latestConversation(ctx, userId);
+  if (latest && latest.messages === 0) return latest.id;
+  return createConversation(ctx, userId);
+}
+
+/** Past chats, most recently active first, titled by their first question. Empty chats are left out. */
+export async function listConversations(ctx: AppContext, userId: string, limit = 100): Promise<SIConversationDTO[]> {
+  const rows = await ctx.db.all<{ id: string; last_at: string; messages: number }>(
+    `SELECT c.id, max(m.created_at) AS last_at, count(m.id)::int AS messages FROM si_conversations c
+     JOIN si_messages m ON m.conversation_id = c.id
+     WHERE c.user_id = ? GROUP BY c.id ORDER BY last_at DESC LIMIT ?`,
+    userId, limit,
+  );
+  if (!rows.length) return [];
+  const firsts = await ctx.db.all<{ conversation_id: string; payload_enc: string }>(
+    `SELECT DISTINCT ON (conversation_id) conversation_id, payload_enc FROM si_messages
+     WHERE user_id = ? AND role = 'user' ORDER BY conversation_id, n`,
+    userId,
+  );
+  const titles = new Map(firsts.map((f) => [f.conversation_id, (JSON.parse(ctx.vault.decrypt(f.payload_enc)) as SIMessageDTO).text]));
+  return rows.map((r) => ({ id: r.id, title: (titles.get(r.id) ?? 'Conversation').slice(0, 120), lastAt: r.last_at, messageCount: Number(r.messages) }));
+}
+
+export async function deleteConversation(ctx: AppContext, userId: string, id: string): Promise<void> {
+  await ctx.db.run('DELETE FROM si_messages WHERE user_id = ? AND conversation_id = ?', userId, id);
+  await ctx.db.run('DELETE FROM si_conversations WHERE user_id = ? AND id = ?', userId, id);
 }
 
 export async function saveMessage(ctx: AppContext, userId: string, conversationId: string, msg: Omit<SIMessageDTO, 'id' | 'createdAt'>): Promise<SIMessageDTO> {
@@ -231,6 +279,3 @@ export async function listMessages(ctx: AppContext, userId: string, conversation
   return rows.reverse().map((r) => ({ ...(JSON.parse(ctx.vault.decrypt(r.payload_enc)) as SIMessageDTO), id: r.id, createdAt: r.created_at }));
 }
 
-export async function clearConversation(ctx: AppContext, userId: string, conversationId: string): Promise<void> {
-  await ctx.db.run('DELETE FROM si_messages WHERE user_id = ? AND conversation_id = ?', userId, conversationId);
-}

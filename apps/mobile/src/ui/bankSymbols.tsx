@@ -21,9 +21,13 @@ const CUSTOM: Record<string, () => ReactNode> = {
 /** Banks drawn from the supplied logos (these always use the vector symbol, never a photo). */
 export const hasSuppliedSymbol = (id: string) => id in CUSTOM;
 
-/** The bank's symbol in colour, or null when there is no vector mark for it. */
-export function bankSymbolShapes(id: string): ReactNode | null {
-  if (CUSTOM[id]) return CUSTOM[id]!();
+/**
+ * The bank's symbol in its colours, or in one flat `mono` colour when given. Null when there is no
+ * vector mark for the bank.
+ */
+export function bankSymbolShapes(id: string, mono?: string): ReactNode | null {
   const logo = BRAND_LOGOS[id];
+  if (mono) return logo ? <Path d={logo.path} fill={mono} /> : null;
+  if (CUSTOM[id]) return CUSTOM[id]!();
   return logo ? <Path d={logo.path} fill={logo.hex} /> : null;
 }

@@ -3,9 +3,10 @@ import type { AppContext } from '../context';
 import { getOrCreateConversation, listMessages, saveMessage } from '../repo/misc';
 import { financialState } from '../services/finance';
 
-export async function siHome(ctx: AppContext, userId: string): Promise<SIHomeDTO> {
+/** SI screen data for a chat: the one asked for, or the one the person was last active in. */
+export async function siHome(ctx: AppContext, userId: string, conversationId?: string): Promise<SIHomeDTO> {
   const state = await financialState(ctx, userId);
-  const conversationId = await getOrCreateConversation(ctx, userId);
+  conversationId = await getOrCreateConversation(ctx, userId, conversationId);
   return {
     conversationId,
     brief: weeklyBrief(state, forecastContext(state)),

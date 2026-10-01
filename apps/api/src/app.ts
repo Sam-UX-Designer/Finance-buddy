@@ -35,13 +35,14 @@ import { listConsents } from './repo/consents';
 import { getJob } from './repo/jobs';
 import {
   ASSUMPTION_KEYS,
-  clearConversation,
   createGoal,
   deleteBudget,
+  deleteConversation,
   deleteGoal,
   getGoal,
-  getOrCreateConversation,
+  listConversations,
   listNotifications,
+  newConversation,
   markRead,
   setAssumption,
   updateGoal,
@@ -383,14 +384,19 @@ export function createApp(ctx: AppContext, opts: AppOptions = {}): Hono<Env> {
   });
 
   // ── SI ─────────────────────────────────────────────────────────────
-  app.get('/v1/si', async (c) => c.json(await siHome(ctx, uid(c))));
+  app.get('/v1/si', async (c) => c.json(await siHome(ctx, uid(c), c.req.query('conversationId') || undefined)));
   app.post('/v1/si/ask', async (c) => {
     const body = await parse(c, z.object({ text: z.string().trim().min(1).max(500), conversationId: z.string().optional() }));
     return c.json(await ask(ctx, uid(c), body.text, body.conversationId));
   });
-  app.post('/v1/si/clear', async (c) => {
-    await clearConversation(ctx, uid(c), await getOrCreateConversation(ctx, uid(c)));
-    return c.json(await siHome(ctx, uid(c)));
+  // New chat: earlier chats stay in history. (/clear is the older name for the same action.)
+  const newChat = async (c: Context) => c.json(await siHome(ctx, uid(c), await newConversation(ctx, uid(c))));
+  app.post('/v1/si/new', newChat);
+  app.post('/v1/si/clear', newChat);
+  app.get('/v1/si/conversations', async (c) => c.json({ conversations: await listConversations(ctx, uid(c)) }));
+  app.delete('/v1/si/conversations/:id', async (c) => {
+    await deleteConversation(ctx, uid(c), c.req.param('id'));
+    return c.json({ ok: true });
   });
 
   // ── Notifications ──────────────────────────────────────────────────

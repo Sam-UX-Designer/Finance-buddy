@@ -171,6 +171,20 @@ describe('end-to-end onboarding and product flow', () => {
     const si = await t.call('GET', '/v1/si');
     expect(si.json.messages).toHaveLength(6);
 
+    // Chat history: a new chat keeps the old one, and either can be reopened or deleted.
+    const fresh = await t.call('POST', '/v1/si/new');
+    expect(fresh.json.messages).toHaveLength(0);
+    expect(fresh.json.conversationId).not.toBe(si.json.conversationId);
+    expect((await t.call('POST', '/v1/si/new')).json.conversationId).toBe(fresh.json.conversationId); // no blank chats pile up
+    await t.call('POST', '/v1/si/ask', { text: 'Show my upcoming payments', conversationId: fresh.json.conversationId });
+    const history = (await t.call('GET', '/v1/si/conversations')).json.conversations;
+    expect(history.map((h: { title: string }) => h.title)).toEqual(['Show my upcoming payments', 'Show my subscription payments']);
+    expect(history[1].messageCount).toBe(6);
+    const reopened = await t.call('GET', `/v1/si?conversationId=${si.json.conversationId}`);
+    expect(reopened.json.messages).toHaveLength(6);
+    await t.call('DELETE', `/v1/si/conversations/${fresh.json.conversationId}`);
+    expect((await t.call('GET', '/v1/si/conversations')).json.conversations).toHaveLength(1);
+
     const notifications = await t.call('GET', '/v1/notifications');
     expect(notifications.json.notifications.length).toBeGreaterThan(0);
 

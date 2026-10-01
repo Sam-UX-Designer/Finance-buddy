@@ -17,6 +17,7 @@ import type {
   NotificationDTO,
   PlanDTO,
   SIAskResponse,
+  SIConversationDTO,
   SIHomeDTO,
   SplitPart,
   TxnDTO,
@@ -38,6 +39,7 @@ export const keys = {
   budgets: ['budgets'] as const,
   goal: (id: string) => ['goal', id] as const,
   si: ['si'] as const,
+  siHistory: ['siHistory'] as const,
   notifications: ['notifications'] as const,
   upcoming: ['upcoming'] as const,
   sessions: ['sessions'] as const,
@@ -61,7 +63,14 @@ export const useWealth = () => useQuery({ queryKey: keys.wealth, queryFn: () => 
 export const usePlan = () => useQuery({ queryKey: keys.plan, queryFn: () => api<PlanDTO>('/v1/plan') });
 export const useForecast = () => useQuery({ queryKey: keys.forecast, queryFn: () => api<ForecastDTO>('/v1/forecast') });
 export const useBudgets = () => useQuery({ queryKey: keys.budgets, queryFn: () => api<BudgetsResponse>('/v1/budgets') });
-export const useSI = () => useQuery({ queryKey: keys.si, queryFn: () => api<SIHomeDTO>('/v1/si') });
+/** An SI chat: the one with this id, or (no id) the chat the person was last active in. */
+export const useSI = (conversationId?: string) =>
+  useQuery({
+    queryKey: [...keys.si, conversationId ?? 'current'],
+    queryFn: () => api<SIHomeDTO>(`/v1/si${conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ''}`),
+  });
+export const useSIHistory = (enabled = true) =>
+  useQuery({ queryKey: keys.siHistory, queryFn: () => api<{ conversations: SIConversationDTO[] }>('/v1/si/conversations'), enabled });
 export const useNotifications = () => useQuery({ queryKey: keys.notifications, queryFn: () => api<{ notifications: NotificationDTO[] }>('/v1/notifications') });
 export const useUpcoming = () => useQuery({ queryKey: keys.upcoming, queryFn: () => api<{ days: number; total: number; items: UpcomingPayment[] }>('/v1/upcoming?days=30') });
 export const useSessions = () => useQuery({ queryKey: keys.sessions, queryFn: () => api<{ sessions: DeviceSessionDTO[] }>('/v1/me/sessions') });
@@ -153,19 +162,37 @@ export function useSetBudget() {
 export function useAsk() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) => api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text } }),
+    mutationFn: ({ text, conversationId }: { text: string; conversationId?: string }) => api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text, conversationId } }),
     onSuccess: (r) => {
-      qc.setQueryData<SIHomeDTO>(keys.si, (old) => (old ? { ...old, messages: [...old.messages, r.question, r.answer] } : old));
+      // Append to whichever cached view shows this chat.
+      qc.setQueriesData<SIHomeDTO>({ queryKey: keys.si }, (old) =>
+        old && old.conversationId === r.conversationId ? { ...old, messages: [...old.messages, r.question, r.answer] } : old,
+      );
+      void qc.invalidateQueries({ queryKey: keys.siHistory });
     },
   });
 }
 
-/** Starts a new SI conversation (clears the chat history; the weekly brief stays). */
-export function useClearSI() {
+/** Starts a new SI chat; earlier chats stay in history. */
+export function useNewChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api<SIHomeDTO>('/v1/si/clear', { method: 'POST' }),
-    onSuccess: (r) => qc.setQueryData(keys.si, r),
+    mutationFn: () => api<SIHomeDTO>('/v1/si/new', { method: 'POST' }),
+    onSuccess: (r) => {
+      qc.setQueryData([...keys.si, 'current'], r);
+      void qc.invalidateQueries({ queryKey: keys.siHistory });
+    },
+  });
+}
+
+export function useDeleteChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: boolean }>(`/v1/si/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.si });
+      void qc.invalidateQueries({ queryKey: keys.siHistory });
+    },
   });
 }
 

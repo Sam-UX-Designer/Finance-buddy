@@ -2,10 +2,11 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, CircleCheck, CircleAlert, Info, Mic, SquarePen } from 'lucide-react-native';
+import { ArrowUp, CircleCheck, CircleAlert, History, Info, Mic, SquarePen } from 'lucide-react-native';
 import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
-import { useAsk, useClearSI, useSI } from '@/lib/queries';
+import { useAsk, useNewChat, useSI } from '@/lib/queries';
+import { ChatHistorySheet } from '@/features/ChatHistory';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
@@ -21,14 +22,17 @@ export default function SIScreen() {
   const insets = useSafeAreaInsets();
   const { me } = useSession();
   const params = useLocalSearchParams<{ q?: string }>();
-  const si = useSI();
+  // Which chat is open: a chat picked from history, or (undefined) the latest one.
+  const [openId, setOpenId] = useState<string | undefined>();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const si = useSI(openId);
   const ask = useAsk();
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
   const handledQ = useRef<string | null>(null);
-  const clear = useClearSI();
+  const newChat = useNewChat();
   const wide = useWide();
   const tabInset = useTabBarInset();
   const width = wide ? WIDE_MAX_WIDTH : MAX_WIDTH;
@@ -41,7 +45,7 @@ export default function SIScreen() {
     setError(null);
     setPending(question);
     try {
-      await ask.mutateAsync(question);
+      await ask.mutateAsync({ text: question, conversationId: si.data?.conversationId });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -86,10 +90,15 @@ export default function SIScreen() {
   const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 6);
   const showSuggestions = !!si.data && !pending && prompts.length > 0;
   const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
-  const clearChat = () => {
+  const startNewChat = () => {
     setError(null);
-    clear.mutate();
+    setOpenId(undefined);
+    newChat.mutate();
   };
+  // A chat that no longer exists (deleted from history) falls back to the latest one.
+  useEffect(() => {
+    if (openId && si.data && si.data.conversationId !== openId) setOpenId(undefined);
+  }, [openId, si.data?.conversationId]);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -168,7 +177,8 @@ export default function SIScreen() {
                   {pending ? 'Thinking…' : 'Answers from your own numbers'}
                 </T>
               </View>
-              {si.data?.messages.length ? <IconButton icon={SquarePen} label="New chat" onPress={clearChat} /> : null}
+              <IconButton icon={History} label="Chat history" onPress={() => setHistoryOpen(true)} />
+              {si.data?.messages.length ? <IconButton icon={SquarePen} label="New chat" onPress={startNewChat} /> : null}
             </Row>
           </GlassSurface>
         </View>
@@ -224,6 +234,20 @@ export default function SIScreen() {
           </GlassSurface>
         </View>
       </View>
+      <ChatHistorySheet
+        visible={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        currentId={si.data?.conversationId}
+        onOpen={(id) => {
+          setError(null);
+          setOpenId(id);
+          setHistoryOpen(false);
+        }}
+        onNew={() => {
+          setHistoryOpen(false);
+          startNewChat();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

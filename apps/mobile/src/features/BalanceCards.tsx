@@ -20,7 +20,7 @@ import { Row, T } from '@/ui/primitives';
 
 const ND = Platform.OS !== 'web';
 const WEB = Platform.OS === 'web';
-const RATIO = 1.586; // bank card proportions
+const RATIO = 1.85; // a little shorter than a real bank card, so more of Home fits on screen
 const RADIUS = 22;
 /** Largest card width (wide screens show several cards side by side). */
 const MAX_CARD_W = 420;
@@ -57,7 +57,7 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const bleed = wide ? 0 : PAGE_X;
   const cardW = wide ? Math.min(width, MAX_CARD_W) : Math.max(0, width - bleed * 2);
   const pageW = wide ? (cardW < width ? cardW + space.lg : cardW) : width;
-  const height = Math.max(190, Math.round(cardW / RATIO));
+  const height = Math.max(176, Math.round(cardW / RATIO));
   const pages = 1 + accounts.length;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -170,14 +170,14 @@ function FlipCard({ width, height, tilt, label, front, back }: { width: number; 
 function useTotalColors() {
   const { scheme } = useTheme();
   return scheme === 'dark'
-    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22, ink: 'rgba(255,255,255,0.07)', logoOpacity: 0.2 }
-    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9, ink: 'rgba(10,10,11,0.055)', logoOpacity: 0.13 };
+    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22, ink: 'rgba(255,255,255,0.07)' }
+    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9, ink: 'rgba(10,10,11,0.055)' };
 }
 
 function TotalFront({ total, accounts, hidden, onToggleHidden, width, height, tilt, sweep, active }: { total: Paise; accounts: HomeAccount[]; hidden: boolean; onToggleHidden: () => void; width: number; height: number; tilt: Tilt; sweep: Animated.Value; active: boolean }) {
   const k = useTotalColors();
   return (
-    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare} pattern={{ banks: bankIds(accounts), ink: k.ink, opacity: k.logoOpacity }}>
+    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare} pattern={{ banks: bankIds(accounts), ink: k.ink }}>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body" color={k.sub}>
           Total Balance
@@ -225,7 +225,7 @@ function TotalBack({ accounts, hidden, width, height, tilt, sweep }: { accounts:
       <T v="smallMedium" color={k.sub}>
         Your bank accounts
       </T>
-      <View style={{ flex: 1, justifyContent: 'center', gap: 8 }}>
+      <View style={{ flex: 1, justifyContent: 'center', gap: 6 }}>
         {accounts.slice(0, 4).map((a) => (
           <Row key={a.id} gap={10}>
             <FipMark fip={a.fip} size={22} />
@@ -256,7 +256,7 @@ function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; 
       tilt={tilt}
       sweep={sweep}
       glare={0.28}
-      pattern={{ banks: [a.fip.id], ink: 'rgba(255,255,255,0.09)', opacity: 0.3 }}
+      pattern={{ banks: [a.fip.id], ink: 'rgba(255,255,255,0.09)' }}
     >
       <Row style={{ justifyContent: 'space-between' }}>
         <Row gap={10}>
@@ -339,8 +339,8 @@ function CardSurface({
   tilt: Tilt;
   sweep: Animated.Value;
   glare: number;
-  /** Watermark: bank ids whose logos repeat in turn, in their own colours (null = the Finance Buddy mark in `ink`). */
-  pattern?: { banks: (string | null)[]; ink: string; opacity: number };
+  /** Watermark: bank ids whose logos repeat in turn in one faint `ink` colour (null = the Finance Buddy mark). */
+  pattern?: { banks: (string | null)[]; ink: string };
   children: ReactNode;
 }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
@@ -367,7 +367,7 @@ function CardSurface({
           <Rect width={width} height={height} fill={`url(#bg${id})`} />
         </Svg>
       )}
-      {pattern ? <Watermark width={width} height={height} banks={pattern.banks} ink={pattern.ink} opacity={pattern.opacity} tilt={tilt} /> : null}
+      {pattern ? <Watermark width={width} height={height} banks={pattern.banks} ink={pattern.ink} tilt={tilt} /> : null}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Animated.View
           style={[
@@ -416,7 +416,7 @@ function CardSurface({
  * Airbnb-style watermark: the logo repeated in staggered diagonal rows at 5–10% opacity. It drifts
  * a little against the tilt (parallax), so the pattern catches the shine as the phone moves.
  */
-const Watermark = memo(function Watermark({ width, height, banks, ink, opacity, tilt }: { width: number; height: number; banks: (string | null)[]; ink: string; opacity: number; tilt: Tilt }) {
+const Watermark = memo(function Watermark({ width, height, banks, ink, tilt }: { width: number; height: number; banks: (string | null)[]; ink: string; tilt: Tilt }) {
   const pad = 28; // extra room so the drift never reveals an edge
   const W = width + pad * 2;
   const H = height + pad * 2;
@@ -437,8 +437,8 @@ const Watermark = memo(function Watermark({ width, height, banks, ink, opacity, 
     <Animated.View pointerEvents="none" style={{ position: 'absolute', left: -pad, top: -pad, width: W, height: H, transform: [{ translateX: dx }, { translateY: dy }] }}>
       <Svg width={W} height={H}>
         {items.map((it, i) => (
-          <G key={i} opacity={opacity} transform={`translate(${it.x} ${it.y}) rotate(-18) translate(${-it.s / 2} ${-it.s / 2}) scale(${it.s / 24})`}>
-            {(it.bank && bankSymbolShapes(it.bank)) || (
+          <G key={i} transform={`translate(${it.x} ${it.y}) rotate(-18) translate(${-it.s / 2} ${-it.s / 2}) scale(${it.s / 24})`}>
+            {(it.bank && bankSymbolShapes(it.bank, ink)) || (
               <>
                 <Circle cx={8.5} cy={12} r={7} fill={ink} />
                 <Circle cx={15.5} cy={12} r={7} fill={ink} />

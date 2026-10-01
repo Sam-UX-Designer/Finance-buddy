@@ -340,6 +340,15 @@ export interface SIHomeDTO {
   suggestions: string[];
   messages: SIMessageDTO[];
 }
+/** A past SI chat in the history list. */
+export interface SIConversationDTO {
+  id: string;
+  /** The first question asked in the chat. */
+  title: string;
+  /** When the chat was last active. */
+  lastAt: string;
+  messageCount: number;
+}
 export interface SIAskBody {
   text: string;
   conversationId?: string;

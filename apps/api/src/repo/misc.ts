@@ -202,13 +202,16 @@ export async function markRead(ctx: AppContext, userId: string, id?: string): Pr
 }
 
 // ── SI conversations ─────────────────────────────────────────────────
-/** The chat the person was last active in (a just-started empty chat counts as active). */
+/**
+ * The chat the person was last active in: a just-started empty chat first, otherwise the chat with
+ * the newest message. Ordered by the messages' insert sequence, so equal timestamps can't tie.
+ */
 async function latestConversation(ctx: AppContext, userId: string): Promise<{ id: string; messages: number } | undefined> {
   const row = await ctx.db.get<{ id: string; messages: number }>(
     `SELECT c.id, count(m.id)::int AS messages FROM si_conversations c
      LEFT JOIN si_messages m ON m.conversation_id = c.id
      WHERE c.user_id = ? GROUP BY c.id, c.created_at
-     ORDER BY max(coalesce(m.created_at, c.created_at)) DESC LIMIT 1`,
+     ORDER BY (count(m.id) = 0) DESC, max(m.n) DESC NULLS LAST, c.created_at DESC LIMIT 1`,
     userId,
   );
   return row ? { id: row.id, messages: Number(row.messages) } : undefined;
@@ -231,11 +234,13 @@ async function createConversation(ctx: AppContext, userId: string): Promise<stri
   return conv;
 }
 
-/** Starts a new chat; the old ones stay in history. An empty latest chat is reused, so no blanks pile up. */
+/** Starts a new chat; the old ones stay in history. An existing empty chat is reused, so no blanks pile up. */
 export async function newConversation(ctx: AppContext, userId: string): Promise<string> {
-  const latest = await latestConversation(ctx, userId);
-  if (latest && latest.messages === 0) return latest.id;
-  return createConversation(ctx, userId);
+  const empty = await ctx.db.get<{ id: string }>(
+    'SELECT c.id FROM si_conversations c WHERE c.user_id = ? AND NOT EXISTS (SELECT 1 FROM si_messages m WHERE m.conversation_id = c.id) LIMIT 1',
+    userId,
+  );
+  return empty?.id ?? createConversation(ctx, userId);
 }
 
 /** Past chats, most recently active first, titled by their first question. Empty chats are left out. */
@@ -243,7 +248,7 @@ export async function listConversations(ctx: AppContext, userId: string, limit =
   const rows = await ctx.db.all<{ id: string; last_at: string; messages: number }>(
     `SELECT c.id, max(m.created_at) AS last_at, count(m.id)::int AS messages FROM si_conversations c
      JOIN si_messages m ON m.conversation_id = c.id
-     WHERE c.user_id = ? GROUP BY c.id ORDER BY last_at DESC LIMIT ?`,
+     WHERE c.user_id = ? GROUP BY c.id ORDER BY max(m.n) DESC LIMIT ?`,
     userId, limit,
   );
   if (!rows.length) return [];

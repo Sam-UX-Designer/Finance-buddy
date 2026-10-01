@@ -24,6 +24,7 @@ interface TxnRow {
   is_recurring: number;
   recurring_source: ClassificationSource | null;
   balance_after: number | null;
+  seq: number;
   note_enc: string | null;
   splits: string | null;
 }
@@ -44,6 +45,7 @@ export interface NewTxn {
   type: TxnType;
   confidence: number;
   balanceAfter: number | null;
+  seq: number;
 }
 
 /** Inserts transactions, skipping duplicates (same account + provider transaction id). Returns inserted count. */
@@ -51,8 +53,8 @@ export function insertTxns(ctx: AppContext, userId: string, txns: NewTxn[]): num
   const now = nowISO(ctx);
   const stmt = ctx.db.raw.prepare(
     `INSERT OR IGNORE INTO transactions (id, user_id, account_id, dedupe_key, posted_at, amount, direction, mode, narration_enc, reference_enc,
-       merchant_key, merchant_name, counterparty_enc, category_id, type, confidence, type_source, category_source, balance_after, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RULE', 'RULE', ?, ?, ?)`,
+       merchant_key, merchant_name, counterparty_enc, category_id, type, confidence, type_source, category_source, balance_after, seq, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RULE', 'RULE', ?, ?, ?, ?)`,
   );
   let inserted = 0;
   ctx.db.tx(() => {
@@ -60,7 +62,7 @@ export function insertTxns(ctx: AppContext, userId: string, txns: NewTxn[]): num
       const r = stmt.run(
         newId('txn'), userId, t.accountId, t.dedupeKey, t.postedAt, t.amount, t.direction, t.mode,
         ctx.vault.encrypt(t.narration), ctx.vault.encryptNullable(t.reference), t.merchantKey, t.merchantName,
-        ctx.vault.encryptNullable(t.counterparty), t.categoryId, t.type, t.confidence, t.balanceAfter, now, now,
+        ctx.vault.encryptNullable(t.counterparty), t.categoryId, t.type, t.confidence, t.balanceAfter, t.seq, now, now,
       );
       inserted += Number(r.changes);
     }
@@ -89,6 +91,7 @@ function toTxn(ctx: AppContext, r: TxnRow): Txn & { reference: string | null } {
     isRecurring: r.is_recurring === 1,
     recurringSource: r.recurring_source,
     balanceAfter: r.balance_after,
+    seq: r.seq,
     note: ctx.vault.decryptNullable(r.note_enc),
     splits: r.splits ? (JSON.parse(r.splits) as SplitPart[]) : null,
   };
@@ -96,7 +99,7 @@ function toTxn(ctx: AppContext, r: TxnRow): Txn & { reference: string | null } {
 
 /** All transactions for the user (decrypted), oldest first, optionally limited to some accounts. */
 export function loadTxns(ctx: AppContext, userId: string, accountIds?: string[]): Txn[] {
-  const rows = ctx.db.all<TxnRow>('SELECT * FROM transactions WHERE user_id = ? ORDER BY posted_at, id', userId);
+  const rows = ctx.db.all<TxnRow>('SELECT * FROM transactions WHERE user_id = ? ORDER BY posted_at, seq, id', userId);
   const set = accountIds ? new Set(accountIds) : null;
   return rows.filter((r) => !set || set.has(r.account_id)).map((r) => toTxn(ctx, r));
 }

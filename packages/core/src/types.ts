@@ -67,6 +67,8 @@ export interface Txn {
   isRecurring: boolean;
   recurringSource?: ClassificationSource | null;
   balanceAfter?: Paise | null;
+  /** Position in the bank statement — orders transactions that share a timestamp. */
+  seq?: number;
   note?: string | null;
   splits?: SplitPart[] | null;
 }

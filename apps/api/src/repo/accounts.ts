@@ -23,11 +23,11 @@ export interface AccountRow {
 }
 
 export function listAccounts(ctx: AppContext, userId: string): AccountRow[] {
-  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at, id', userId);
+  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at, rowid', userId);
 }
 
 export function linkedAccounts(ctx: AppContext, userId: string): AccountRow[] {
-  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND linked = 1 ORDER BY created_at, id', userId);
+  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND linked = 1 ORDER BY created_at, rowid', userId);
 }
 
 export function getAccount(ctx: AppContext, userId: string, id: string): AccountRow | undefined {

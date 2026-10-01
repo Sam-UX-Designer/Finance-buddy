@@ -88,9 +88,8 @@ async function runDiscovery(ctx: AppContext, userId: string, jobId: string, phon
   }
 }
 
-export function discoveryState(ctx: AppContext, userId: string): DiscoveryResponse | null {
-  const job = latestJob(ctx, userId, 'DISCOVERY');
-  if (!job) return null;
+export function discoveryState(ctx: AppContext, userId: string): DiscoveryResponse {
+  const job = latestJob(ctx, userId, 'DISCOVERY') ?? null;
   return { job, accounts: listAccounts(ctx, userId).map(toDiscoveredDTO) };
 }
 

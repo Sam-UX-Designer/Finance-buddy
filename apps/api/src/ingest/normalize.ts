@@ -35,7 +35,7 @@ export function normalizeDeposit(payload: DepositPayload, accountId: string, cls
   const seen = new Set<string>();
   const txns: NewTxn[] = [];
   let rejected = 0;
-  for (const t of payload.transactions) {
+  for (const [index, t] of payload.transactions.entries()) {
     try {
       const amount = toPaise(t.amount, 'amount');
       if (amount <= 0) throw new IngestError('Non-positive amount');
@@ -64,6 +64,8 @@ export function normalizeDeposit(payload: DepositPayload, accountId: string, cls
         type: c.type,
         confidence: c.confidence,
         balanceAfter: t.currentBalance ? toPaise(t.currentBalance, 'currentBalance') : null,
+        // Statement order breaks ties between transactions that share a timestamp.
+        seq: index,
       });
     } catch (e) {
       if (e instanceof IngestError) rejected += 1;

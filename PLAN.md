@@ -81,6 +81,15 @@ These are small interpretations of the mockup — easy to change:
 4. **Mock AA approval** appears as a clearly labelled sandbox sheet, standing in for
    the partner's hosted consent page.
 
-## 6. Status
+## 6. Status (1 Oct 2026)
 
-Tracked in the PR / commit history. See `README.md` for how to run.
+| Phase | Status |
+|---|---|
+| 1–13 | Done — see README "What works today" |
+| 14 Verify | Done — 30 engine unit tests, 5 API end-to-end flow tests, scripted browser walkthrough of 32 screens (light + dark) with zero runtime errors |
+
+Next (needs credentials or business decisions, not code):
+1. AA partner sandbox/UAT adapter (implements `apps/api/src/aa/provider.ts`) — needs FIU onboarding.
+2. SMS provider for OTP (implements `apps/api/src/auth/sms.ts`).
+3. Hosting: managed Postgres, KMS-managed encryption key, logs/metrics, EAS store builds.
+4. Licensed bank logos to replace monograms.

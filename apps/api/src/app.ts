@@ -155,11 +155,7 @@ export function createApp(ctx: AppContext): Hono<Env> {
 
   // ── Onboarding / AA ────────────────────────────────────────────────
   app.post('/v1/aa/discovery', (c) => c.json({ job: startDiscovery(ctx, uid(c)) }));
-  app.get('/v1/aa/discovery', (c) => {
-    const d = discoveryState(ctx, uid(c));
-    if (!d) throw notFound('Discovery has not started.');
-    return c.json(d);
-  });
+  app.get('/v1/aa/discovery', (c) => c.json(discoveryState(ctx, uid(c))));
   app.post('/v1/aa/consent-preview', async (c) => {
     const body = await parse(c, z.object({ accountIds: z.array(z.string()).min(1).max(20) }));
     return c.json(consentPreview(ctx, uid(c), body.accountIds));

@@ -271,6 +271,9 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE transactions ADD COLUMN seq INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 function migrate(db: DatabaseSync): void {

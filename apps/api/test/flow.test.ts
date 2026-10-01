@@ -46,7 +46,7 @@ async function signIn(t: ReturnType<typeof setup>, phone = '9876543210') {
 
 async function onboard(t: ReturnType<typeof setup>, pick?: (a: any) => boolean) {
   await t.call('POST', '/v1/aa/discovery');
-  const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job.status !== 'RUNNING');
+  const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job && r.json.job.status !== 'RUNNING');
   const ids = disc.json.accounts.filter(pick ?? (() => true)).map((a: any) => a.id);
   const consent = await t.call('POST', '/v1/aa/consents', { accountIds: ids });
   const providerId = consent.json.approvalUrl.replace('sandbox:', '');
@@ -191,8 +191,8 @@ describe('end-to-end onboarding and product flow', () => {
     const t = setup();
     await signIn(t, '9123456780');
     await t.call('POST', '/v1/aa/discovery');
-    const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job.status !== 'RUNNING');
-    const ids = disc.json.accounts.slice(0, 2).map((a: any) => a.id);
+    const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job && r.json.job.status !== 'RUNNING');
+    const ids = disc.json.accounts.filter((a: any) => a.group === 'BANK').slice(0, 2).map((a: any) => a.id);
     const c1 = await t.call('POST', '/v1/aa/consents', { accountIds: ids });
     await t.call('POST', `/v1/sandbox/consents/${c1.json.approvalUrl.replace('sandbox:', '')}/reject`);
     expect((await t.call('GET', `/v1/aa/consents/${c1.json.id}`)).json.status).toBe('REJECTED');

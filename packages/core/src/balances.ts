@@ -2,6 +2,11 @@ import { signed } from './ledger';
 import type { Paise } from './money';
 import { isDepositAccount, type Account, type Txn } from './types';
 
+/** Statement order: time, then the bank's own sequence, then id. */
+export function byStatementOrder(a: Txn, b: Txn): number {
+  return Date.parse(a.postedAt) - Date.parse(b.postedAt) || (a.seq ?? 0) - (b.seq ?? 0) || a.id.localeCompare(b.id);
+}
+
 /** Sum of current balances across linked deposit (savings/current) accounts. */
 export function totalCash(accounts: readonly Account[]): Paise {
   return accounts.filter((a) => a.linked && isDepositAccount(a.type)).reduce((s, a) => s + a.currentBalance, 0);
@@ -20,7 +25,7 @@ export function balanceAt(account: Account, txns: readonly Txn[], atISO: string)
   const at = Date.parse(atISO);
   const own = txns
     .filter((t) => t.accountId === account.id)
-    .sort((a, b) => Date.parse(a.postedAt) - Date.parse(b.postedAt) || a.id.localeCompare(b.id));
+    .sort(byStatementOrder);
   let lastBefore: Txn | undefined;
   for (const t of own) {
     if (Date.parse(t.postedAt) <= at) lastBefore = t;
@@ -54,7 +59,7 @@ export interface Reconciliation {
 export function reconcile(account: Account, txns: readonly Txn[]): Reconciliation {
   const own = txns
     .filter((t) => t.accountId === account.id)
-    .sort((a, b) => Date.parse(a.postedAt) - Date.parse(b.postedAt) || a.id.localeCompare(b.id));
+    .sort(byStatementOrder);
   const withBalance = own.filter((t) => t.balanceAfter != null);
   if (own.length === 0 || withBalance.length === 0) {
     return { accountId: account.id, status: 'UNVERIFIED', difference: 0, checkedTransactions: 0, breaks: 0 };

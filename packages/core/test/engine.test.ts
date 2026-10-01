@@ -122,6 +122,19 @@ describe('Finance Engine rules (Blueprint §10)', () => {
     expect(balanceAt(accounts[0]!, txns, at(10, 1, 8))).toBe(5000000);
   });
 
+  it('reconciles transactions that share a timestamp using statement order', () => {
+    const a = account('hdfc', '4821', 1000);
+    const same = at(9, 10, 12);
+    const txns = buildTxns([a], [
+      { accountId: 'hdfc', at: same, amount: 300, direction: 'DEBIT', narration: 'UPI/DR/1/SWIGGY/swiggy@ybl/Order' },
+      { accountId: 'hdfc', at: same, amount: 200, direction: 'DEBIT', narration: 'UPI/DR/2/ZOMATO/zomato@ybl/Order' },
+    ]);
+    // Give the later statement line the "smaller" id so id order alone would break the chain.
+    const reversedIds = txns.map((t, i) => ({ ...t, id: `z${txns.length - i}` }));
+    expect(reconcile(a, reversedIds).status).toBe('RECONCILED');
+    expect(balanceAt(a, reversedIds, same)).toBe(50000);
+  });
+
   it('infers a loan when a payment to a person is returned in full', () => {
     const a = account('hdfc', '4821', 20000);
     const txns = buildTxns([a], [

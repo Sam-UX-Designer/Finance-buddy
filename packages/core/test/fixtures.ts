@@ -34,7 +34,7 @@ let seq = 0;
 export function buildTxns(accounts: (Account & { opening: number })[], specs: RawSpec[]): Txn[] {
   const balances = new Map(accounts.map((a) => [a.id, a.opening * 100]));
   const sorted = [...specs].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
-  const txns: Txn[] = sorted.map((s) => {
+  const txns: Txn[] = sorted.map((s, index) => {
     const amount = Math.round(s.amount * 100);
     const bal = balances.get(s.accountId)! + (s.direction === 'CREDIT' ? amount : -amount);
     balances.set(s.accountId, bal);
@@ -58,6 +58,7 @@ export function buildTxns(accounts: (Account & { opening: number })[], specs: Ra
       categorySource: 'RULE',
       isRecurring: false,
       balanceAfter: bal,
+      seq: index,
     };
   });
   for (const a of accounts) a.currentBalance = balances.get(a.id)!;

@@ -105,7 +105,8 @@ export interface DiscoveredAccountDTO {
   linked: boolean;
 }
 export interface DiscoveryResponse {
-  job: JobDTO;
+  /** Null until discovery has been started. */
+  job: JobDTO | null;
   accounts: DiscoveredAccountDTO[];
 }
 

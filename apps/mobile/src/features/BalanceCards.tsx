@@ -8,7 +8,7 @@ import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from 
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
 import { space } from '@/theme/tokens';
-import { BRAND_LOGOS } from '@/ui/brands';
+import { bankSymbolShapes } from '@/ui/bankSymbols';
 import { BankLogo, FipMark, Money } from '@/ui/display';
 import { PAGE_X, useWide } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
@@ -170,14 +170,14 @@ function FlipCard({ width, height, tilt, label, front, back }: { width: number; 
 function useTotalColors() {
   const { scheme } = useTheme();
   return scheme === 'dark'
-    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22, ink: 'rgba(255,255,255,0.07)' }
-    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9, ink: 'rgba(10,10,11,0.055)' };
+    ? { from: '#2C2C31', to: '#0C0C0E', text: '#FFFFFF', sub: '#A1A1A8', button: 'rgba(255,255,255,0.12)', border: '#2E2E33', glare: 0.22, ink: 'rgba(255,255,255,0.07)', logoOpacity: 0.2 }
+    : { from: '#FFFFFF', to: '#E3E5EA', text: '#0A0A0B', sub: '#5F636B', button: 'rgba(10,10,11,0.06)', border: '#DADDE2', glare: 0.9, ink: 'rgba(10,10,11,0.055)', logoOpacity: 0.13 };
 }
 
 function TotalFront({ total, accounts, hidden, onToggleHidden, width, height, tilt, sweep, active }: { total: Paise; accounts: HomeAccount[]; hidden: boolean; onToggleHidden: () => void; width: number; height: number; tilt: Tilt; sweep: Animated.Value; active: boolean }) {
   const k = useTotalColors();
   return (
-    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare} pattern={{ marks: bankMarks(accounts), ink: k.ink }}>
+    <CardSurface width={width} height={height} from={k.from} to={k.to} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare} pattern={{ banks: bankIds(accounts), ink: k.ink, opacity: k.logoOpacity }}>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body" color={k.sub}>
           Total Balance
@@ -256,7 +256,7 @@ function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; 
       tilt={tilt}
       sweep={sweep}
       glare={0.28}
-      pattern={{ marks: [BRAND_LOGOS[a.fip.id]?.path ?? null], ink: 'rgba(255,255,255,0.09)' }}
+      pattern={{ banks: [a.fip.id], ink: 'rgba(255,255,255,0.09)', opacity: 0.3 }}
     >
       <Row style={{ justifyContent: 'space-between' }}>
         <Row gap={10}>
@@ -339,8 +339,8 @@ function CardSurface({
   tilt: Tilt;
   sweep: Animated.Value;
   glare: number;
-  /** Watermark: 24×24 logo paths (null = the Finance Buddy mark) repeated in turn at low opacity. */
-  pattern?: { marks: (string | null)[]; ink: string };
+  /** Watermark: bank ids whose logos repeat in turn, in their own colours (null = the Finance Buddy mark in `ink`). */
+  pattern?: { banks: (string | null)[]; ink: string; opacity: number };
   children: ReactNode;
 }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
@@ -367,7 +367,7 @@ function CardSurface({
           <Rect width={width} height={height} fill={`url(#bg${id})`} />
         </Svg>
       )}
-      {pattern ? <Watermark width={width} height={height} marks={pattern.marks} ink={pattern.ink} tilt={tilt} /> : null}
+      {pattern ? <Watermark width={width} height={height} banks={pattern.banks} ink={pattern.ink} opacity={pattern.opacity} tilt={tilt} /> : null}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Animated.View
           style={[
@@ -416,19 +416,19 @@ function CardSurface({
  * Airbnb-style watermark: the logo repeated in staggered diagonal rows at 5–10% opacity. It drifts
  * a little against the tilt (parallax), so the pattern catches the shine as the phone moves.
  */
-const Watermark = memo(function Watermark({ width, height, marks, ink, tilt }: { width: number; height: number; marks: (string | null)[]; ink: string; tilt: Tilt }) {
+const Watermark = memo(function Watermark({ width, height, banks, ink, opacity, tilt }: { width: number; height: number; banks: (string | null)[]; ink: string; opacity: number; tilt: Tilt }) {
   const pad = 28; // extra room so the drift never reveals an edge
   const W = width + pad * 2;
   const H = height + pad * 2;
   const cell = 36;
   const rowH = cell * 0.78;
-  const list = marks.length ? marks : [null];
-  const items: { x: number; y: number; s: number; mark: string | null }[] = [];
+  const list = banks.length ? banks : [null];
+  const items: { x: number; y: number; s: number; bank: string | null }[] = [];
   for (let r = 0; r * rowH < H + rowH; r++) {
     for (let c = 0; c * cell < W + cell; c++) {
       // Every third logo is a little larger, like the Airbnb card.
       const s = (r * 2 + c) % 3 === 0 ? 19 : 14;
-      items.push({ x: c * cell + (r % 2 ? cell / 2 : 0), y: r * rowH, s, mark: list[(c + r * 2) % list.length]! });
+      items.push({ x: c * cell + (r % 2 ? cell / 2 : 0), y: r * rowH, s, bank: list[(c + r * 2) % list.length]! });
     }
   }
   const dx = tilt.x.interpolate({ inputRange: [-1, 1], outputRange: [pad * 0.6, -pad * 0.6] });
@@ -437,10 +437,8 @@ const Watermark = memo(function Watermark({ width, height, marks, ink, tilt }: {
     <Animated.View pointerEvents="none" style={{ position: 'absolute', left: -pad, top: -pad, width: W, height: H, transform: [{ translateX: dx }, { translateY: dy }] }}>
       <Svg width={W} height={H}>
         {items.map((it, i) => (
-          <G key={i} transform={`translate(${it.x} ${it.y}) rotate(-18) translate(${-it.s / 2} ${-it.s / 2}) scale(${it.s / 24})`}>
-            {it.mark ? (
-              <Path d={it.mark} fill={ink} />
-            ) : (
+          <G key={i} opacity={opacity} transform={`translate(${it.x} ${it.y}) rotate(-18) translate(${-it.s / 2} ${-it.s / 2}) scale(${it.s / 24})`}>
+            {(it.bank && bankSymbolShapes(it.bank)) || (
               <>
                 <Circle cx={8.5} cy={12} r={7} fill={ink} />
                 <Circle cx={15.5} cy={12} r={7} fill={ink} />
@@ -453,10 +451,10 @@ const Watermark = memo(function Watermark({ width, height, marks, ink, tilt }: {
   );
 });
 
-/** One mark per connected bank, for the total card's watermark. */
-function bankMarks(accounts: HomeAccount[]): (string | null)[] {
+/** One logo per connected bank, for the total card's watermark. */
+function bankIds(accounts: HomeAccount[]): (string | null)[] {
   const ids = [...new Set(accounts.map((a) => a.fip.id))];
-  return ids.length ? ids.map((id) => BRAND_LOGOS[id]?.path ?? null) : [null];
+  return ids.length ? ids : [null];
 }
 
 /** The contact chip printed on bank cards. */

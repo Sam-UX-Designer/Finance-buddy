@@ -71,9 +71,11 @@ export function GlassSurface({
     // Rim highlight sits on the material layer; the drop shadow on the outer shape.
     const material = { backgroundColor: fill, backdropFilter: backdrop, WebkitBackdropFilter: backdrop, boxShadow: flat ? 'none' : highlight } as unknown as ViewStyle;
     const shadow = { boxShadow: flat ? 'none' : drop } as unknown as ViewStyle;
+    // zIndex 0 makes the surface its own stacking layer and -1 keeps the material underneath every
+    // child, including ones the browser doesn't position (text inputs), so typed text stays visible.
     return (
-      <View ref={ref} {...rest} style={[shape, shadow, style]}>
-        <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, material]} />
+      <View ref={ref} {...rest} style={[shape, shadow, { zIndex: 0 }, style]}>
+        <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }, material]} />
         {children}
       </View>
     );

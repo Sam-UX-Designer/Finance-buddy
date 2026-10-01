@@ -94,7 +94,10 @@ async function fromPlay(pkg) {
 async function fromWebsite(domain) {
   const r = await get(`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=256`);
   if (!r.ok) return null;
-  return { buf: Buffer.from(await r.arrayBuffer()), source: `website icon: ${domain}` };
+  const buf = Buffer.from(await r.arrayBuffer());
+  // Google returns a small generic globe when a site has no real icon; skip those.
+  if (buf.length < 1500) return null;
+  return { buf, source: `website icon: ${domain}` };
 }
 
 async function fetchOne([key, pkgs, domain]) {

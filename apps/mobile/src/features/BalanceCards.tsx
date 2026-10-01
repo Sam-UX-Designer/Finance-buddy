@@ -6,6 +6,7 @@ import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'r
 import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
 import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/lib/haptics';
 import { space } from '@/theme/tokens';
 import { BankLogo, FipMark, Money } from '@/ui/display';
 import { Row, T } from '@/ui/primitives';
@@ -44,7 +45,10 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;
     const p = Math.round(e.nativeEvent.contentOffset.x / pageW);
-    if (p !== page) setPage(Math.max(0, Math.min(pages - 1, p)));
+    if (p !== page) {
+      haptics.select();
+      setPage(Math.max(0, Math.min(pages - 1, p)));
+    }
   };
   const goTo = (p: number) => scroller.current?.scrollTo({ x: p * pageW, animated: !reduceMotion });
 
@@ -118,6 +122,7 @@ function FlipCard({ width, height, tilt, label, front, back }: { width: number; 
     askMotionPermission();
     const to = flipped ? 0 : 1;
     setFlipped(!flipped);
+    haptics.tap();
     if (reduceMotion) flip.setValue(to);
     else Animated.spring(flip, { toValue: to, useNativeDriver: ND, friction: 9, tension: 40 }).start();
   };

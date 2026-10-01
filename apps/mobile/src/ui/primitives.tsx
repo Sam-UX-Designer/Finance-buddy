@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space, type as typeScale, type TypeVariant } from '@/theme/tokens';
+import { GlassSurface } from './glass';
 import type { Palette } from '@/theme/tokens';
 
 type Tone = 'primary' | 'secondary' | 'tertiary' | 'inverse' | 'positive' | 'negative' | 'warning' | 'loan' | 'info' | 'heroSecondary';
@@ -95,18 +96,12 @@ export function Press({
   );
 }
 
-export function Card({ style, children, muted, ...rest }: ViewProps & { muted?: boolean }) {
-  const { c } = useTheme();
+/** Content card: a thin frosted material over the ambient backdrop (HIG: materials in the content layer). */
+export function Card({ style, children, muted, tint, ...rest }: ViewProps & { muted?: boolean; tint?: string }) {
   return (
-    <View
-      {...rest}
-      style={[
-        { backgroundColor: muted ? c.surfaceMuted : c.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, padding: space.lg },
-        style,
-      ]}
-    >
+    <GlassSurface {...rest} variant={muted ? 'pill' : 'card'} radius={radius.lg} tint={tint} style={[{ padding: space.lg }, style]}>
       {children}
-    </View>
+    </GlassSurface>
   );
 }
 

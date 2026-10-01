@@ -1,80 +1,196 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated, View } from 'react-native';
-import { Check } from 'lucide-react-native';
-import { useInvalidateFinance } from '@/lib/queries';
+import { CalendarClock, PiggyBank, TrendingUp } from 'lucide-react-native';
+import { formatINR, type HomeDTO } from '@finance-buddy/core';
+import { haptics } from '@/lib/haptics';
+import { useHome, useInvalidateFinance } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
-import { space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 import { Button } from '@/ui/controls';
-import { Banner, Screen } from '@/ui/layout';
-import { T } from '@/ui/primitives';
+import { FipMark, Money } from '@/ui/display';
+import { GlassSurface } from '@/ui/glass';
+import { Banner, FadeIn, Screen, Skeleton } from '@/ui/layout';
+import { Row, T } from '@/ui/primitives';
+import { SIOrb } from '@/ui/SIOrb';
 
-const DOTS = [
-  { x: -120, y: -150, r: 45 },
-  { x: 110, y: -130, r: -30 },
-  { x: -140, y: 40, r: 20 },
-  { x: 130, y: 60, r: 60 },
-  { x: -90, y: 130, r: -15 },
-  { x: 100, y: 150, r: 35 },
-  { x: 150, y: -40, r: 10 },
-];
-
+/**
+ * The first payoff after connecting: the whole picture appears at once (net worth counting up,
+ * every bank in one place), then a few things SI has already noticed in the person's own numbers.
+ */
 export default function SuccessScreen() {
-  const { c, reduceMotion } = useTheme();
+  const { c } = useTheme();
   const { partial } = useLocalSearchParams<{ partial?: string }>();
   const { refreshMe } = useSession();
   const invalidate = useInvalidateFinance();
-  const scale = useRef(new Animated.Value(reduceMotion ? 1 : 0.6)).current;
-  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const home = useHome();
+  const d = home.data;
+  const celebrated = useRef(false);
+
   useEffect(() => {
     void refreshMe();
     void invalidate();
-    if (reduceMotion) return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }),
-      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-    ]).start();
   }, []);
+  useEffect(() => {
+    if (!d || celebrated.current) return;
+    celebrated.current = true;
+    haptics.success();
+  }, [d]);
+
+  const finds = d ? findings(d) : [];
+  const banks = d ? uniqueBanks(d) : [];
 
   return (
-    <Screen edges={['top', 'bottom']} scroll={false} footer={<Button label="Continue" onPress={() => router.replace('/(tabs)')} />}>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg }}>
-        <View style={{ width: 160, height: 160, alignItems: 'center', justifyContent: 'center' }} importantForAccessibility="no-hide-descendants">
-          {DOTS.map((d, i) => (
-            <Animated.View
-              key={i}
-              style={{
-                position: 'absolute',
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                backgroundColor: c.positive,
-                opacity: Animated.multiply(opacity, 0.35),
-                transform: [{ translateX: d.x }, { translateY: d.y }, { rotate: `${d.r}deg` }],
-              }}
-            />
+    <Screen edges={['top', 'bottom']} footer={<Button label="Open my dashboard" onPress={() => router.replace('/(tabs)')} />}>
+      <FadeIn>
+        <Row gap={space.sm} style={{ marginTop: space.lg }}>
+          <SIOrb size={28} />
+          <T v="small" tone="secondary">
+            Super Intelligence
+          </T>
+        </Row>
+        <T v="title" accessibilityRole="header" style={{ marginTop: space.md }}>
+          Here’s your money, all in one place
+        </T>
+      </FadeIn>
+
+      {d ? (
+        <>
+          <FadeIn delay={150}>
+            <Hero d={d} banks={banks} />
+          </FadeIn>
+
+          {finds.length ? (
+            <FadeIn delay={500}>
+              <T v="bodySemibold" style={{ marginTop: space.xxl, marginBottom: space.md }}>
+                What I already found
+              </T>
+            </FadeIn>
+          ) : null}
+          {finds.map((f, i) => (
+            <FadeIn key={f.key} delay={700 + i * 220}>
+              <GlassSurface variant="card" radius={radius.lg} tint={f.key === 'insight' ? c.siTint : undefined} style={{ padding: space.lg, marginBottom: space.md }}>
+                <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: f.soft, alignItems: 'center', justifyContent: 'center' }}>{f.icon}</View>
+                  <View style={{ flex: 1 }}>
+                    <T v="bodySemibold">{f.title}</T>
+                    <T v="small" tone="secondary" style={{ marginTop: 2 }}>
+                      {f.body}
+                    </T>
+                  </View>
+                </Row>
+              </GlassSurface>
+            </FadeIn>
           ))}
-          <Animated.View style={{ width: 150, height: 150, borderRadius: 75, backgroundColor: c.positiveSoft, alignItems: 'center', justifyContent: 'center', opacity, transform: [{ scale }] }}>
-            <View style={{ width: 112, height: 112, borderRadius: 56, backgroundColor: c.positiveSoft, borderWidth: 6, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: c.positive, alignItems: 'center', justifyContent: 'center' }}>
-                <Check size={40} color="#FFFFFF" strokeWidth={3} />
-              </View>
-            </View>
-          </Animated.View>
+        </>
+      ) : (
+        <View style={{ gap: space.md, marginTop: space.xl }} accessibilityLabel="Putting your picture together">
+          <Skeleton height={180} style={{ borderRadius: radius.xl }} />
+          <Skeleton height={72} style={{ borderRadius: radius.lg }} />
+          <Skeleton height={72} style={{ borderRadius: radius.lg }} />
         </View>
-        <T v="title" align="center" accessibilityRole="header" style={{ marginTop: space.lg }}>
-          You’re all set!
-        </T>
-        <T v="body" tone="secondary" align="center" style={{ maxWidth: 300 }}>
-          We’ve connected your accounts and understood your financial activity.
-        </T>
-        {partial === '1' ? (
-          <View style={{ alignSelf: 'stretch', marginTop: space.md }}>
-            <Banner tone="warning" title="Some accounts didn't sync" body="Your picture is incomplete for now. You can retry from Accounts." />
-          </View>
-        ) : null}
-      </View>
+      )}
+
+      {partial === '1' ? (
+        <View style={{ marginTop: space.md }}>
+          <Banner tone="warning" title="Some accounts didn't sync" body="Your picture is incomplete for now. You can retry from Accounts." />
+        </View>
+      ) : null}
     </Screen>
   );
+}
+
+function Hero({ d, banks }: { d: HomeDTO; banks: HomeDTO['balance']['accounts'] }) {
+  const { c, reduceMotion } = useTheme();
+  const glow = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduceMotion) return;
+    Animated.timing(glow, { toValue: 1, duration: 1400, delay: 200, useNativeDriver: true }).start();
+  }, []);
+  const total = d.wealth?.netWorth ?? d.balance.total;
+  const count = d.balance.accountCount;
+  return (
+    <GlassSurface variant="card" radius={radius.xl} style={{ padding: space.xl, marginTop: space.xl }}>
+      <T v="small" tone="secondary">
+        {d.wealth ? 'Your net worth today' : 'Your money today'}
+      </T>
+      <View style={{ marginTop: space.xs }}>
+        <Money value={total} v="display" decimals={0} />
+      </View>
+      {d.wealth && d.wealth.change !== 0 ? (
+        <Animated.View style={{ opacity: glow }}>
+          <T v="small" color={d.wealth.change > 0 ? c.positive : c.negative} style={{ marginTop: space.xs }}>
+            {`${d.wealth.change > 0 ? 'Up' : 'Down'} ${formatINR(Math.abs(d.wealth.change), { decimals: 0 })} since 1 Jan`}
+          </T>
+        </Animated.View>
+      ) : null}
+      <View style={{ height: 1, backgroundColor: c.divider, marginVertical: space.lg }} />
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Row>
+          {banks.slice(0, 5).map((a, i) => (
+            <View key={a.fip.id} style={{ marginLeft: i ? -10 : 0, borderRadius: 12, borderWidth: 2, borderColor: c.glassEdge }}>
+              <FipMark fip={a.fip} size={32} />
+            </View>
+          ))}
+        </Row>
+        <T v="small" tone="secondary">
+          {`${count} account${count === 1 ? '' : 's'} connected`}
+        </T>
+      </Row>
+    </GlassSurface>
+  );
+}
+
+interface Finding {
+  key: string;
+  title: string;
+  body: string;
+  icon: ReactNode;
+  soft: string;
+}
+
+/** Up to three things worth knowing, all taken from the person's own numbers. */
+function findings(d: HomeDTO): Finding[] {
+  const out: Finding[] = [];
+  const m = d.month;
+  // Early in a month the savings rate says little (salary in, few bills out yet), so skip it then.
+  if (m.savingsRatePct != null && m.income > 0 && new Date().getDate() >= 10) {
+    out.push({
+      key: 'savings',
+      title: m.savingsRatePct > 0 ? `You kept ${Math.round(m.savingsRatePct)}% of your income in ${m.label}` : `You spent more than you earned in ${m.label}`,
+      body: `${formatINR(m.income, { decimals: 0 })} came in and ${formatINR(m.spent, { decimals: 0 })} went out.`,
+      icon: <PiggyBank size={18} color="#16A34A" />,
+      soft: 'rgba(22,163,74,0.14)',
+    });
+  }
+  const inv = d.investments;
+  if (inv && inv.invested > 0) {
+    const up = inv.gain >= 0;
+    out.push({
+      key: 'investments',
+      title: `Your investments are ${up ? 'up' : 'down'} ${formatINR(Math.abs(inv.gain), { decimals: 0 })}`,
+      body: `${formatINR(inv.value, { decimals: 0 })} today on ${formatINR(inv.invested, { decimals: 0 })} put in${inv.gainPct != null ? ` (${up ? '+' : '−'}${Math.abs(inv.gainPct).toFixed(1)}%)` : ''}.`,
+      icon: <TrendingUp size={18} color="#2563EB" />,
+      soft: 'rgba(37,99,235,0.14)',
+    });
+  }
+  if (d.upcoming.count > 0) {
+    out.push({
+      key: 'upcoming',
+      title: `${d.upcoming.count} payment${d.upcoming.count === 1 ? '' : 's'} due in the next ${d.upcoming.days} days`,
+      body: `${formatINR(d.upcoming.total, { decimals: 0 })} in total. I’ll remind you before each one.`,
+      icon: <CalendarClock size={18} color="#D97706" />,
+      soft: 'rgba(217,119,6,0.14)',
+    });
+  }
+  if (d.insight && out.length < 3) {
+    out.push({ key: 'insight', title: d.insight.title, body: d.insight.body, icon: <SIOrb size={22} />, soft: 'transparent' });
+  }
+  return out.slice(0, 3);
+}
+
+function uniqueBanks(d: HomeDTO): HomeDTO['balance']['accounts'] {
+  const seen = new Set<string>();
+  return d.balance.accounts.filter((a) => (seen.has(a.fip.id) ? false : (seen.add(a.fip.id), true)));
 }

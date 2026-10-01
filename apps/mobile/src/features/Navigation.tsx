@@ -4,6 +4,7 @@ import { Animated, Easing, Image, Platform, Pressable, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, ChartNoAxesColumnIncreasing, ClipboardList, House, Lightbulb, ReceiptText, Settings, type LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/lib/haptics';
 import { radius, space } from '@/theme/tokens';
 import { GlassSurface } from '@/ui/glass';
 import { SIDEBAR_W } from '@/ui/layout';
@@ -101,6 +102,7 @@ export function GlassTabBar({ state, navigation }: TabBarProps) {
               accessibilityLabel={tab.label}
               onPress={() => {
                 const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!focused) haptics.select();
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
               }}
               style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, transform: [{ scale: pressed && !reduceMotion ? 0.9 : 1 }] })}

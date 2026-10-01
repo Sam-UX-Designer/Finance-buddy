@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { CalendarDays, Landmark, RefreshCw, ShieldCheck, ReceiptText, Wallet, ChartLine, PiggyBank } from 'lucide-react-native';
 import type { ConsentPreviewDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
+import { haptics } from '@/lib/haptics';
 import { onboardingApi } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
@@ -47,6 +48,7 @@ export default function ConsentScreen() {
         // Test mode: tapping Approve here is the approval (no separate Account Aggregator step).
         const approved = await onboardingApi.sandboxDecide(url.slice(8), 'approve');
         if (approved.status !== 'ACTIVE') throw new Error('Could not connect your accounts. Please try again.');
+        haptics.success();
         router.replace('/onboarding/sync');
       } else if (url) {
         // Production: the AA partner's hosted consent page; the webhook updates status server-side.

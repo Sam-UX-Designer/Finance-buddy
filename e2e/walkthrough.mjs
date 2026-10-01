@@ -89,10 +89,11 @@ try {
     await shot('sync');
   });
   await step('success', async () => {
-    await text('You’re all set').waitFor({ timeout: 30000 });
-    await page.waitForTimeout(400);
+    await text('Here’s your money, all in one place').waitFor({ timeout: 30000 });
+    await text('What I already found').waitFor({ timeout: 15000 });
+    await page.waitForTimeout(1800);
     await shot('success');
-    await page.getByRole('button', { name: 'Continue' }).filter({ visible: true }).last().click();
+    await page.getByRole('button', { name: 'Open my dashboard' }).filter({ visible: true }).last().click();
   });
   await step('home', async () => {
     await text('Total Balance').waitFor({ timeout: 15000 });

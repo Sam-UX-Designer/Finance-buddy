@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { haptics } from '@/lib/haptics';
 import { View } from 'react-native';
 import { Plus, SlidersHorizontal } from 'lucide-react-native';
 import {
@@ -21,7 +22,7 @@ import { radius, space } from '@/theme/tokens';
 import { LineChart } from '@/charts/Charts';
 import { Button, Chip, IconButton, Segmented, TextField } from '@/ui/controls';
 import { EmojiAvatar, ListRow, Pill } from '@/ui/display';
-import { Banner, EmptyState, ErrorState, FadeIn, LoadingState, Screen, Sheet, TabHeader } from '@/ui/layout';
+import { Banner, EmptyState, ErrorState, FadeIn, LoadingState, Screen, Sheet } from '@/ui/layout';
 import { Card, Divider, Press, ProgressBar, Row, SectionTitle, T } from '@/ui/primitives';
 
 type Tab = 'goals' | 'forecast' | 'budget';
@@ -41,8 +42,9 @@ export default function PlanScreen() {
         void forecast.refetch();
         void budgets.refetch();
       }}
+      title="Plan"
+      titleRight={<IconButton icon={SlidersHorizontal} label="Forecast assumptions" onPress={() => router.push('/assumptions')} />}
     >
-      <TabHeader title="Plan" right={<IconButton icon={SlidersHorizontal} label="Forecast assumptions" onPress={() => router.push('/assumptions')} />} />
       <Segmented
         options={[
           { key: 'goals', label: 'Goals' },
@@ -223,6 +225,7 @@ function Budgets({ q }: { q: ReturnType<typeof useBudgets> }) {
     if (!editing) return;
     try {
       await set.mutateAsync({ categoryId: editing.categoryId, monthlyLimit: limit });
+      haptics.success();
       setEditing(null);
     } catch (e) {
       setError(errorMessage(e));

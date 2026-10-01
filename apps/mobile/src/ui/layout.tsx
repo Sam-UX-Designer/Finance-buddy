@@ -20,7 +20,9 @@ import { ArrowLeft, CircleAlert, Inbox, RefreshCw, TriangleAlert, WifiOff, X } f
 import { useTheme } from '@/theme/ThemeProvider';
 import { motion, radius, space } from '@/theme/tokens';
 import { ApiRequestError, errorMessage } from '@/lib/api';
+import { AmbientBackground } from './Ambient';
 import { Button, IconButton } from './controls';
+import { GlassSurface } from './glass';
 import { Press, Row, T } from './primitives';
 
 export const PAGE_X = space.xl;
@@ -52,6 +54,9 @@ export function Screen({
   contentStyle,
   scrollProps,
   maxWidth,
+  title,
+  titleRight,
+  compactTitle,
 }: {
   children: ReactNode;
   scroll?: boolean;
@@ -64,38 +69,78 @@ export function Screen({
   scrollProps?: ScrollViewProps;
   /** Overrides the content width cap (e.g. a two-column Home on wide screens). */
   maxWidth?: number;
+  /** Large title at the top that collapses into a glass header while scrolling (iOS style). */
+  title?: string;
+  titleRight?: ReactNode;
+  /** Title for the collapsed header when the screen draws its own large title. */
+  compactTitle?: string;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const wide = useWide();
   const tabInset = useTabBarInset();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const pad = padded ? PAGE_X : 0;
   const width = maxWidth ?? (wide ? WIDE_MAX_WIDTH : MAX_WIDTH);
+  const headerTitle = compactTitle ?? title;
+  const onScroll = headerTitle && scroll ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== 'web' }) : undefined;
   const inner = (
-    <View style={[{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: pad }, contentStyle]}>{children}</View>
+    <View style={[{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: pad }, contentStyle]}>
+      {title ? <TabHeader title={title} right={titleRight} /> : null}
+      {children}
+    </View>
   );
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: edges.includes('top') ? insets.top : 0 }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {scroll ? (
-          <ScrollView
-            {...scrollProps}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: space.xxxl + tabInset + (edges.includes('bottom') ? insets.bottom : 0) }}
-            refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.textSecondary} /> : undefined}
-          >
-            {inner}
-          </ScrollView>
-        ) : (
-          <View style={{ flex: 1 }}>{inner}</View>
-        )}
-        {footer ? (
-          <View style={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: space.md, paddingBottom: Math.max(insets.bottom, space.lg) }}>
-            {footer}
-          </View>
-        ) : null}
-      </KeyboardAvoidingView>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <AmbientBackground />
+      <View style={{ flex: 1, paddingTop: edges.includes('top') ? insets.top : 0 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {scroll ? (
+            <Animated.ScrollView
+              {...scrollProps}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: space.xxxl + tabInset + (edges.includes('bottom') ? insets.bottom : 0) }}
+              refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.textSecondary} /> : undefined}
+            >
+              {inner}
+            </Animated.ScrollView>
+          ) : (
+            <View style={{ flex: 1 }}>{inner}</View>
+          )}
+          {footer ? (
+            <View style={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: space.md, paddingBottom: Math.max(insets.bottom, space.lg) }}>
+              {footer}
+            </View>
+          ) : null}
+        </KeyboardAvoidingView>
+      </View>
+      {headerTitle && scroll ? <CompactHeader title={headerTitle} scrollY={scrollY} /> : null}
     </View>
+  );
+}
+
+/** The small glass title bar that fades in once the large title scrolls away. */
+function CompactHeader({ title, scrollY }: { title: string; scrollY: Animated.Value }) {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  const opacity = scrollY.interpolate({ inputRange: [28, 64], outputRange: [0, 1], extrapolate: 'clamp' });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, opacity }}
+    >
+      <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+        <View style={{ height: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xxl }}>
+          <T v="bodySemibold" numberOfLines={1}>
+            {title}
+          </T>
+        </View>
+      </GlassSurface>
+    </Animated.View>
   );
 }
 
@@ -160,16 +205,13 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
             transform: [{ translateY: y }],
           }}
         >
-          <View
+          <GlassSurface
+            radius={radius.xl}
             style={{
               width: '100%',
               maxWidth: MAX_WIDTH,
-              backgroundColor: c.bg,
-              borderTopLeftRadius: radius.xl,
-              borderTopRightRadius: radius.xl,
-              borderWidth: 1,
-              borderBottomWidth: 0,
-              borderColor: c.border,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
               paddingBottom: Math.max(insets.bottom, space.lg),
             }}
           >
@@ -188,7 +230,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
               {children}
             </ScrollView>
             {footer ? <View style={{ paddingHorizontal: PAGE_X }}>{footer}</View> : null}
-          </View>
+          </GlassSurface>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

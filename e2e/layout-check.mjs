@@ -23,7 +23,7 @@ async function signedIn(viewport, colorScheme) {
   await page.getByText('We found your').first().waitFor({ timeout: 20000 });
   await vis(page.getByRole('button', { name: /Continue \(\d+ selected\)/ })).click();
   await vis(page.getByRole('button', { name: 'Approve & connect' })).click();
-  await page.getByText('You’re all set').first().waitFor({ timeout: 30000 });
+  await page.getByText('Here’s your money, all in one place').first().waitFor({ timeout: 30000 });
   await vis(page.getByRole('button', { name: /Go to|Continue|Open|Start|home/i })).click().catch(() => {});
   await page.getByText('Total Balance').first().waitFor({ timeout: 20000 });
   await page.waitForTimeout(1200);

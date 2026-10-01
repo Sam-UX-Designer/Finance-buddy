@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, TrendingUp } from 'lucide-react-native';
 import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
+import { haptics } from '@/lib/haptics';
 import { useHome, useSync } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
@@ -14,6 +15,7 @@ import { EmojiAvatar, IconTile, Money } from '@/ui/display';
 import { Banner, ErrorState, FadeIn, Screen, Skeleton, useWide } from '@/ui/layout';
 import { Card, Press, Row, SectionTitle, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
+import { GlassSurface } from '@/ui/glass';
 
 /** Home answers: "How am I doing financially right now?" (Blueprint §8). */
 export default function HomeScreen() {
@@ -28,6 +30,7 @@ export default function HomeScreen() {
   const refresh = async () => {
     try {
       await sync.mutateAsync();
+      haptics.success();
     } catch {
       // Sync errors surface through the sync banner after refetch.
     }
@@ -93,7 +96,7 @@ export default function HomeScreen() {
   ) : null;
 
   return (
-    <Screen refreshing={home.isRefetching || sync.isPending} onRefresh={refresh} maxWidth={wide ? 1120 : undefined}>
+    <Screen refreshing={home.isRefetching || sync.isPending} onRefresh={refresh} maxWidth={wide ? 1120 : undefined} compactTitle={d ? `${d.greeting}, ${d.name ?? 'there'}` : 'Home'}>
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: space.lg }}>
         <View>
           <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
@@ -114,32 +117,40 @@ export default function HomeScreen() {
       ) : !d ? (
         <HomeSkeleton />
       ) : (
-        <FadeIn>
+        <View>
           <SyncNotice d={d} />
           {wide ? (
             <Row gap={space.xxl} style={{ alignItems: 'flex-start' }}>
               <View style={{ flex: 1.15 }}>
-                {moneyBlock}
-                {thisMonth}
-                {upcoming}
+                <FadeIn>{moneyBlock}</FadeIn>
+                <FadeIn delay={240}>{thisMonth}</FadeIn>
+                <FadeIn delay={300}>{upcoming}</FadeIn>
               </View>
               <View style={{ flex: 1 }}>
-                <SINoticed d={d} />
-                <TodaySpending t={d.today} />
-                {d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}
+                <FadeIn delay={80}>
+                  <SINoticed d={d} />
+                </FadeIn>
+                <FadeIn delay={140}>
+                  <TodaySpending t={d.today} />
+                </FadeIn>
+                <FadeIn delay={200}>{d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}</FadeIn>
               </View>
             </Row>
           ) : (
             <>
-              {moneyBlock}
-              {d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}
-              <TodaySpending t={d.today} />
-              <SINoticed d={d} />
-              {thisMonth}
-              {upcoming}
+              <FadeIn>{moneyBlock}</FadeIn>
+              <FadeIn delay={90}>{d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null}</FadeIn>
+              <FadeIn delay={160}>
+                <TodaySpending t={d.today} />
+              </FadeIn>
+              <FadeIn delay={220}>
+                <SINoticed d={d} />
+              </FadeIn>
+              <FadeIn delay={260}>{thisMonth}</FadeIn>
+              <FadeIn delay={300}>{upcoming}</FadeIn>
             </>
           )}
-        </FadeIn>
+        </View>
       )}
       <SendSheet visible={sending} onClose={() => setSending(false)} />
     </Screen>
@@ -281,7 +292,8 @@ function NetWorthCard({ w, hidden }: { w: NonNullable<HomeDTO['wealth']>; hidden
 function MonthTile({ label, value, color, bg, icon, onPress }: { label: string; value: number; color: string; bg: string; icon: React.ReactNode; onPress: () => void }) {
   const { c } = useTheme();
   return (
-    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label} this month: ${formatINR(value)}`} style={{ flex: 1, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, padding: space.md, backgroundColor: c.surface, gap: 6 }}>
+    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label} this month: ${formatINR(value)}`} style={{ flex: 1 }}>
+      <GlassSurface variant="card" radius={radius.lg} style={{ padding: space.md, gap: 6 }}>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="small" color={color === c.text ? c.textSecondary : color}>
           {label}
@@ -291,6 +303,7 @@ function MonthTile({ label, value, color, bg, icon, onPress }: { label: string; 
       <T v="bodySemibold" color={color} numberOfLines={1} adjustsFontSizeToFit>
         {formatINR(value, { decimals: 0 })}
       </T>
+      </GlassSurface>
     </Press>
   );
 }
@@ -299,7 +312,7 @@ function SINoticed({ d }: { d: HomeDTO }) {
   const { c } = useTheme();
   const i = d.insight;
   return (
-    <View style={{ marginTop: space.xxl, backgroundColor: c.siCard, borderRadius: radius.xl, borderWidth: 1, borderColor: c.siCardBorder, padding: space.lg }}>
+    <GlassSurface variant="card" tint={c.siTint} radius={radius.xl} style={{ marginTop: space.xxl, padding: space.lg }}>
       <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
         <SIOrb size={34} />
         <View style={{ flex: 1, gap: 6 }}>
@@ -330,7 +343,7 @@ function SINoticed({ d }: { d: HomeDTO }) {
           </Row>
         </Press>
       ) : null}
-    </View>
+    </GlassSurface>
   );
 }
 

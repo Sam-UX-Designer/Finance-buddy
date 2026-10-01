@@ -32,6 +32,12 @@ export interface Palette {
   infoSoft: string;
   siCard: string;
   siCardBorder: string;
+  /** Translucent fills for small controls on the ambient backdrop (chips, fields). */
+  glassFill: string;
+  glassFillStrong: string;
+  glassEdge: string;
+  /** Stained-glass tint for SI's cards. */
+  siTint: string;
   tabBar: string;
   overlay: string;
   skeleton: string;
@@ -66,6 +72,10 @@ export const light: Palette = {
   infoSoft: '#ECF2FF',
   siCard: '#F4F1FF',
   siCardBorder: '#ECE7FF',
+  glassFill: 'rgba(255,255,255,0.55)',
+  glassFillStrong: 'rgba(255,255,255,0.78)',
+  glassEdge: 'rgba(255,255,255,0.85)',
+  siTint: 'rgba(237,233,255,0.62)',
   tabBar: '#FFFFFF',
   overlay: 'rgba(0,0,0,0.4)',
   skeleton: '#F0F0F2',
@@ -100,6 +110,10 @@ export const dark: Palette = {
   infoSoft: '#111C33',
   siCard: '#121117',
   siCardBorder: '#1F1C2B',
+  glassFill: 'rgba(255,255,255,0.07)',
+  glassFillStrong: 'rgba(255,255,255,0.11)',
+  glassEdge: 'rgba(255,255,255,0.12)',
+  siTint: 'rgba(76,60,140,0.30)',
   tabBar: '#000000',
   overlay: 'rgba(0,0,0,0.6)',
   skeleton: '#1A1A1D',

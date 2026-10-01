@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { errorMessage } from '@/lib/api';
+import { haptics } from '@/lib/haptics';
 import { usePlan, useSaveGoal } from '@/lib/queries';
 import { space } from '@/theme/tokens';
 import { bodyFrom, draftFrom, GoalForm, missingFor } from '@/features/GoalForm';
@@ -35,8 +36,10 @@ export default function NewGoal() {
               setError(null);
               try {
                 await save.mutateAsync(body!);
+                haptics.success();
                 router.back();
               } catch (e) {
+                haptics.error();
                 setError(errorMessage(e));
               }
             }}

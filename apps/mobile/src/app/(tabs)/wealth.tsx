@@ -8,7 +8,7 @@ import { radius, space } from '@/theme/tokens';
 import { Donut, LineChart } from '@/charts/Charts';
 import { ChipRow, IconButton } from '@/ui/controls';
 import { GainText, IconTile, ListRow, Pill } from '@/ui/display';
-import { Banner, ErrorState, FadeIn, LoadingState, Screen, Sheet, TabHeader } from '@/ui/layout';
+import { Banner, ErrorState, FadeIn, LoadingState, Screen, Sheet } from '@/ui/layout';
 import { Card, Divider, Row, SectionTitle, T } from '@/ui/primitives';
 import type { Palette } from '@/theme/tokens';
 
@@ -55,8 +55,7 @@ export default function WealthScreen() {
   const colors: Record<string, string> = { MUTUAL_FUNDS: c.info, TERM_DEPOSIT: c.negative, SAVINGS: c.positive, EPF: c.loan, RECEIVABLES: c.warning };
 
   return (
-    <Screen refreshing={w.isRefetching} onRefresh={() => w.refetch()}>
-      <TabHeader title="Wealth" right={<IconButton icon={Info} label="How net worth is calculated" onPress={() => setInfo(true)} />} />
+    <Screen refreshing={w.isRefetching} onRefresh={() => w.refetch()} title="Wealth" titleRight={<IconButton icon={Info} label="How net worth is calculated" onPress={() => setInfo(true)} />}>
       {w.error && !d ? (
         <ErrorState error={w.error} onRetry={() => w.refetch()} />
       ) : !d ? (

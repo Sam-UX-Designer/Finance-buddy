@@ -1,15 +1,16 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { ChevronRight, Info, Landmark, LogOut, Smartphone, Trash } from 'lucide-react-native';
 import { formatDate, type ThemePreference } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
+import { haptics } from '@/lib/haptics';
 import { useHealth, useSessions } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';
-import { Button, IconButton, Segmented, TextField } from '@/ui/controls';
+import { Button, IconButton, Segmented, TextField, Toggle } from '@/ui/controls';
 import { BackHeader, Banner, Screen, Sheet } from '@/ui/layout';
 import { Card, Divider, Press, Row, SectionTitle, T } from '@/ui/primitives';
 
@@ -24,6 +25,7 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [haptic, setHaptic] = useState(haptics.enabled);
 
   const setTheme = (p: ThemePreference) => {
     setPreference(p);
@@ -75,6 +77,27 @@ export default function SettingsScreen() {
           value={preference}
           onChange={setTheme}
         />
+        {Platform.OS !== 'web' ? (
+          <Card style={{ marginTop: space.md, paddingVertical: space.md }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, paddingRight: space.md }}>
+                <T v="bodyMedium">Haptics</T>
+                <T v="small" tone="secondary">
+                  Gentle taps when you switch tabs, flip a card or finish a task
+                </T>
+              </View>
+              <Toggle
+                label="Haptics"
+                value={haptic}
+                onChange={(v) => {
+                  haptics.setEnabled(v);
+                  setHaptic(v);
+                  if (v) haptics.select();
+                }}
+              />
+            </Row>
+          </Card>
+        ) : null}
       </View>
 
       <View style={{ marginTop: space.xl }}>

@@ -6,6 +6,7 @@ export const webInputReset = (Platform.OS === 'web' ? { outlineStyle: 'none', ou
 import type { LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
+import { haptics } from '@/lib/haptics';
 import { Press, Row, T } from './primitives';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'hero';
@@ -103,16 +104,23 @@ export function Chip({ label, selected, onPress, icon }: { label: string; select
   const { c } = useTheme();
   return (
     <Press
-      onPress={onPress}
+      onPress={
+        onPress
+          ? () => {
+              haptics.select();
+              onPress();
+            }
+          : undefined
+      }
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       style={{
         height: 34,
         paddingHorizontal: 14,
         borderRadius: radius.md,
-        backgroundColor: selected ? c.primary : c.surface,
+        backgroundColor: selected ? c.primary : c.glassFill,
         borderWidth: 1,
-        borderColor: selected ? c.primary : c.border,
+        borderColor: selected ? c.primary : c.glassEdge,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
@@ -147,7 +155,10 @@ export function Segmented<K extends string>({ options, value, onChange }: { opti
         return (
           <Press
             key={o.key}
-            onPress={() => onChange(o.key)}
+            onPress={() => {
+              if (!selected) haptics.select();
+              onChange(o.key);
+            }}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             style={{
@@ -156,9 +167,9 @@ export function Segmented<K extends string>({ options, value, onChange }: { opti
               borderRadius: radius.md,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: selected ? c.surface : c.surfaceMuted,
+              backgroundColor: selected ? c.glassFillStrong : c.glassFill,
               borderWidth: 1,
-              borderColor: selected ? c.text : 'transparent',
+              borderColor: selected ? c.text : c.glassEdge,
             }}
           >
             <T v={selected ? 'bodySemibold' : 'bodyMedium'} tone={selected ? 'primary' : 'secondary'}>
@@ -188,7 +199,7 @@ export const TextField = forwardRef<TextInput, TextInputProps & { label?: string
             borderRadius: radius.md,
             borderWidth: 1,
             borderColor: error ? c.negative : focused ? c.text : c.border,
-            backgroundColor: c.surface,
+            backgroundColor: c.glassFillStrong,
             paddingHorizontal: space.lg,
             gap: space.sm,
           }}

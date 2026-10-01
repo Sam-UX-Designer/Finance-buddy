@@ -13,6 +13,7 @@ import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, us
 import { IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
 import { SIOrb } from '@/ui/SIOrb';
+import { AmbientBackground } from '@/ui/Ambient';
 import { Press, Row, T } from '@/ui/primitives';
 
 /** SI: ask and receive financial intelligence (Blueprint §12). Answers come from Finance Engine tools. */
@@ -86,6 +87,7 @@ export default function SIScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <AmbientBackground />
       <View style={{ flex: 1 }}>
         {si.error && !si.data ? (
           <View style={{ flex: 1, paddingTop: header }}>
@@ -103,7 +105,7 @@ export default function SIScreen() {
           >
             {/* Proactive brief */}
             <FadeIn>
-              <View style={{ backgroundColor: c.surfaceMuted, borderRadius: radius.lg, padding: space.lg, gap: space.sm }}>
+              <GlassSurface variant="card" radius={radius.lg} style={{ padding: space.lg, gap: space.sm }}>
                 <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
                 {si.data.brief.enoughData ? (
                   <>
@@ -117,7 +119,7 @@ export default function SIScreen() {
                     I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
                   </T>
                 )}
-              </View>
+              </GlassSurface>
             </FadeIn>
 
             <View style={{ marginTop: space.xl, gap: space.sm }}>
@@ -125,7 +127,7 @@ export default function SIScreen() {
                 You can ask me things like:
               </T>
               {si.data.suggestions.map((s) => (
-                <Press key={s} onPress={() => send(s)} accessibilityRole="button" style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.surface }}>
+                <Press key={s} onPress={() => send(s)} accessibilityRole="button" style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: c.glassEdge, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.glassFill }}>
                   <T v="small">{s}</T>
                 </Press>
               ))}
@@ -259,7 +261,7 @@ function Message({ m, onFollowUp }: { m: SIMessageDTO; onFollowUp: (q: string) =
         ))}
         <Row gap={space.sm} style={{ flexWrap: 'wrap', marginTop: 2 }}>
           {m.followUps.slice(0, 2).map((f) => (
-            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: c.glassEdge, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.glassFill }}>
               <T v="small">{f}</T>
             </Press>
           ))}

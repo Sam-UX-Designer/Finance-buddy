@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Minus, Plus, Trash } from 'lucide-react-native';
 import { formatDate, formatINR, projectGoal } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
+import { haptics } from '@/lib/haptics';
 import { useDeleteGoal, useGoal, usePlan, useSaveGoal } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
@@ -93,6 +94,7 @@ export default function GoalScreen() {
                   onPress={async () => {
                     try {
                       await save.mutateAsync({ ...bodyFrom(draftFrom(g))!, monthlyContribution: whatIf! });
+                      haptics.success();
                     } catch (e) {
                       setError(errorMessage(e));
                     }
@@ -130,6 +132,7 @@ export default function GoalScreen() {
             onPress={async () => {
               try {
                 await save.mutateAsync(bodyFrom(draft!)!);
+                haptics.success();
                 setEditing(false);
               } catch (e) {
                 setError(errorMessage(e));

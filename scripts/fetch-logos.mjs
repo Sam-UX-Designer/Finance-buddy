@@ -60,11 +60,8 @@ const SOURCES = [
   ['zerodha', ['com.zerodha.kite3'], 'zerodha.com'],
   ['groww', ['com.nextbillion.groww'], 'groww.in'],
   // Banks and other account providers.
-  ['bank-hdfc', [], 'hdfcbank.com'],
+  // HDFC, Axis and SBI are drawn in the app (src/ui/display.tsx) from the logos the owner supplied.
   ['bank-icici', ['com.csam.icici.bank.imobile'], 'icicibank.com'],
-  // Axis and SBI app icons are app brands ("open", "SBI Pay"), not the bank logo: website icon only.
-  ['bank-axis', [], 'axisbank.com'],
-  ['bank-sbi', [], 'sbi.co.in'],
   ['bank-cams', [], 'camsonline.com'],
   ['bank-epfo', [], 'epfindia.gov.in'],
 ];

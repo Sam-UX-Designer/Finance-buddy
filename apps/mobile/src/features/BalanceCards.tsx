@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { DeviceMotion } from 'expo-sensors';
-import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
@@ -37,7 +37,19 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
-  const tilt = useMotionTilt(!reduceMotion);
+  // Tilting the phone to any side gives a firm bump as the card reaches that edge (Home only).
+  const onScreen = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      onScreen.current = true;
+      return () => {
+        onScreen.current = false;
+      };
+    }, []),
+  );
+  const tilt = useMotionTilt(!reduceMotion, () => {
+    if (onScreen.current) haptics.strong();
+  });
   const sweep = useSweep(!reduceMotion);
   const wide = useWide();
   // Phones: the carousel runs edge to edge and each page keeps the page margin on both sides, so a
@@ -467,12 +479,16 @@ function CardChip() {
 
 // ── Motion ────────────────────────────────────────────────────────────
 /** Tilt from the device's motion sensors (phones), relative to how the phone is being held. */
-function useMotionTilt(enabled: boolean): Tilt {
+function useMotionTilt(enabled: boolean, onEdge?: (side: 'left' | 'right' | 'up' | 'down') => void): Tilt {
   const tilt = useRef<Tilt>({ x: new Animated.Value(0), y: new Animated.Value(0) }).current;
+  const edgeHandler = useRef(onEdge);
+  edgeHandler.current = onEdge;
   useEffect(() => {
     if (!enabled) return;
     let base: { b: number; g: number } | null = null;
     const s = { x: 0, y: 0 };
+    let edge: string | null = null;
+    let lastBump = 0;
     const apply = (beta: number, gamma: number) => {
       if (!base) base = { b: beta, g: gamma };
       // Slowly re-centre so the card responds to movement, not to the resting angle.
@@ -482,6 +498,16 @@ function useMotionTilt(enabled: boolean): Tilt {
       s.y += (clamp((beta - base.b) / 18) - s.y) * 0.35;
       tilt.x.setValue(s.x);
       tilt.y.setValue(s.y);
+      // Edge bump: once each time the tilt reaches a side; it re-arms after coming back to centre.
+      const horizontal = Math.abs(s.x) >= Math.abs(s.y);
+      const v = horizontal ? s.x : s.y;
+      const side = Math.abs(v) < 0.85 ? null : horizontal ? (v > 0 ? 'right' : 'left') : v > 0 ? 'down' : 'up';
+      const now = Date.now();
+      if (side && side !== edge && now - lastBump > 200) {
+        edge = side;
+        lastBump = now;
+        edgeHandler.current?.(side);
+      } else if (!side && Math.max(Math.abs(s.x), Math.abs(s.y)) < 0.5) edge = null;
     };
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined') return;

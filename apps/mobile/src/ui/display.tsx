@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Image, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { formatINR, type CategoryId, type FipDTO, type Paise, type TxnType } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -76,8 +76,40 @@ function BrandTile({ hex, path, label, size, round }: { hex: string; path: strin
   );
 }
 
+/**
+ * HDFC, Axis and SBI symbols, drawn as vectors to match the logos the product owner supplied (the
+ * symbol only: the wordmark is too small to read at icon size). Shown on a white tile.
+ */
+const BANK_SYMBOLS: Record<string, (s: number) => ReactNode> = {
+  hdfc: (s) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24">
+      <Path d={BRAND_LOGOS.hdfc!.path} fill="#ED232A" />
+      <Rect x={8.345} y={8.53} width={6.963} height={6.938} fill="#004C8F" />
+    </Svg>
+  ),
+  axis: (s) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24">
+      <Path d={BRAND_LOGOS.axis!.path} fill="#97144D" />
+    </Svg>
+  ),
+  sbi: (s) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24">
+      <Path d={BRAND_LOGOS.sbi!.path} fill="#00AEEF" />
+    </Svg>
+  ),
+};
+
+function BankSymbolTile({ id, size, label }: { id: string; size: number; label: string }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size * 0.28, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={label}>
+      {BANK_SYMBOLS[id]!(size * 0.64)}
+    </View>
+  );
+}
+
 /** Bank / FIP mark: the bank's logo when available, otherwise a monogram in its colour. */
 export function FipMark({ fip, size = 36 }: { fip: FipDTO; size?: number }) {
+  if (BANK_SYMBOLS[fip.id]) return <BankSymbolTile id={fip.id} size={size} label={fip.name} />;
   const photo = LOGOS[`bank-${fip.id}`];
   if (photo) return <LogoImage source={photo} size={size} radius={size * 0.28} label={fip.name} />;
   const logo = BRAND_LOGOS[fip.id];
@@ -96,6 +128,7 @@ export function FipMark({ fip, size = 36 }: { fip: FipDTO; size?: number }) {
 
 /** Bank logo on a white tile, for use on top of a coloured bank card. */
 export function BankLogo({ fip, size = 32 }: { fip: FipDTO; size?: number }) {
+  if (BANK_SYMBOLS[fip.id]) return <BankSymbolTile id={fip.id} size={size} label={fip.name} />;
   const photo = LOGOS[`bank-${fip.id}`];
   if (photo) return <LogoImage source={photo} size={size} radius={size * 0.28} label={fip.name} />;
   const logo = BRAND_LOGOS[fip.id];

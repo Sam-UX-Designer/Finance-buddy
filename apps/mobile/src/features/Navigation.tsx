@@ -9,6 +9,7 @@ import { radius, space } from '@/theme/tokens';
 import { GlassSurface } from '@/ui/glass';
 import { SIDEBAR_W } from '@/ui/layout';
 import { T } from '@/ui/primitives';
+import { APP_LOGO } from '@/ui/SIOrb';
 
 export const TABS: { name: string; label: string; icon: LucideIcon; href: Href }[] = [
   { name: 'index', label: 'Home', icon: House, href: '/' },
@@ -127,7 +128,7 @@ export function Sidebar({ state }: TabBarProps) {
     <View style={{ position: 'absolute', left: 12, top: 12, bottom: 12, width: SIDEBAR_W - 24 }}>
       <GlassSurface radius={radius.xl} style={{ flex: 1, paddingHorizontal: space.md, paddingVertical: space.lg }} role="navigation" aria-label="Main">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, marginBottom: space.xl }}>
-          <Image source={require('../../assets/images/icon.png')} style={{ width: 30, height: 30, borderRadius: 8 }} accessibilityIgnoresInvertColors />
+          <Image source={APP_LOGO} style={{ width: 32, height: 32 }} resizeMode="contain" accessibilityIgnoresInvertColors />
           <T v="bodySemibold">Finance Buddy</T>
         </View>
         <View style={{ gap: 2 }}>

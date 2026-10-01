@@ -16,7 +16,7 @@
     "android": {
       "package": "ai.workfast.financebuddy",
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -39,7 +39,7 @@
         {
           "backgroundColor": "#000000",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 96
+          "imageWidth": 140
         }
       ]
     ],

@@ -20,7 +20,7 @@ export default function UpcomingScreen() {
         <EmptyState title="Nothing due soon" body="We list bills, rent, subscriptions and SIPs here once they repeat at least three times, or when you mark one as recurring." />
       ) : (
         <>
-          <Card muted>
+          <Card>
             <T v="small" tone="secondary">{`Next ${d.days} days`}</T>
             <T v="amount">{formatINR(d.total, { decimals: 0 })}</T>
             <T v="caption" tone="tertiary">{`${d.items.length} payment${d.items.length === 1 ? '' : 's'} expected from your payment history`}</T>

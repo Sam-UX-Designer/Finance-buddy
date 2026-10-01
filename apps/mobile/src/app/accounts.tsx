@@ -50,7 +50,7 @@ export default function AccountsScreen() {
         <LoadingState />
       ) : (
         <FadeIn>
-          <Card muted>
+          <Card>
             <T v="small" tone="secondary">
               Total in bank accounts
             </T>

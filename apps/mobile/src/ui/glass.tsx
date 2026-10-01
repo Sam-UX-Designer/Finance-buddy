@@ -67,14 +67,13 @@ export function GlassSurface({
     const highlight = dark
       ? 'inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.07)'
       : 'inset 0 1px 1px rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.55)';
-    const drop = dark ? ', 0 12px 36px rgba(0,0,0,0.5)' : ', 0 12px 36px rgba(20,20,30,0.14), 0 1px 3px rgba(20,20,30,0.08)';
-    const web = {
-      backdropFilter: backdrop,
-      WebkitBackdropFilter: backdrop,
-      boxShadow: flat ? 'none' : `${highlight}${drop}`,
-    } as unknown as ViewStyle;
+    const drop = dark ? '0 12px 36px rgba(0,0,0,0.5)' : '0 12px 36px rgba(20,20,30,0.14), 0 1px 3px rgba(20,20,30,0.08)';
+    // Rim highlight sits on the material layer; the drop shadow on the outer shape.
+    const material = { backgroundColor: fill, backdropFilter: backdrop, WebkitBackdropFilter: backdrop, boxShadow: flat ? 'none' : highlight } as unknown as ViewStyle;
+    const shadow = { boxShadow: flat ? 'none' : drop } as unknown as ViewStyle;
     return (
-      <View ref={ref} {...rest} style={[shape, { backgroundColor: fill }, web, style]}>
+      <View ref={ref} {...rest} style={[shape, shadow, style]}>
+        <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, material]} />
         {children}
       </View>
     );

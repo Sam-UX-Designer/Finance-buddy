@@ -140,7 +140,7 @@ export function GoalForm({ draft, onChange, returnPct = 0 }: { draft: GoalDraft;
         ) : null}
       </View>
       {projection && body ? (
-        <Card muted>
+        <Card>
           <T v="smallMedium" tone="secondary">
             Projection
           </T>

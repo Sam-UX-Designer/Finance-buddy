@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -128,6 +128,13 @@ function CompactHeader({ title, scrollY }: { title: string; scrollY: Animated.Va
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const opacity = scrollY.interpolate({ inputRange: [28, 64], outputRange: [0, 1], extrapolate: 'clamp' });
+  // Mounted only while it can be seen: an invisible glass layer could still blur what's under it.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => setShown((s) => (s ? value > 20 : value > 28)));
+    return () => scrollY.removeListener(id);
+  }, [scrollY]);
+  if (!shown) return null;
   return (
     <Animated.View
       pointerEvents="none"

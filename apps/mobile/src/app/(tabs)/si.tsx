@@ -78,8 +78,13 @@ export default function SIScreen() {
   };
 
   const header = HEADER_H + insets.top;
-  // Quick prompts sit in a row above the input until the conversation starts (like ChatGPT).
-  const showSuggestions = !!si.data && !si.data.messages.length && !pending && !keyboard;
+  // Quick prompts sit in a row above the input for the whole conversation: after an answer they
+  // are that answer's follow-ups, topped up with general suggestions; questions already asked are skipped.
+  const messages = si.data?.messages ?? [];
+  const asked = new Set(messages.filter((m) => m.role === 'user').map((m) => m.text.trim().toLowerCase()));
+  const lastAnswer = [...messages].reverse().find((m) => m.role === 'assistant');
+  const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 6);
+  const showSuggestions = !!si.data && !pending && prompts.length > 0;
   const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
   const clearChat = () => {
     setError(null);
@@ -125,7 +130,7 @@ export default function SIScreen() {
             {/* Conversation */}
             <View style={{ marginTop: space.xl, gap: space.lg }}>
               {si.data.messages.map((m) => (
-                <Message key={m.id} m={m} onFollowUp={send} />
+                <Message key={m.id} m={m} />
               ))}
               {pending ? (
                 <>
@@ -172,6 +177,7 @@ export default function SIScreen() {
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
           {showSuggestions ? (
             <ScrollView
+              key={prompts.join('|')}
               horizontal
               showsHorizontalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -179,7 +185,7 @@ export default function SIScreen() {
               style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
               contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
             >
-              {si.data!.suggestions.map((q) => (
+              {prompts.map((q) => (
                 <Press
                   key={q}
                   onPress={() => send(q)}
@@ -257,7 +263,7 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
-function Message({ m, onFollowUp }: { m: SIMessageDTO; onFollowUp: (q: string) => void }) {
+function Message({ m }: { m: SIMessageDTO }) {
   const { c } = useTheme();
   if (m.role === 'user') return <UserBubble text={m.text} />;
   return (
@@ -272,13 +278,6 @@ function Message({ m, onFollowUp }: { m: SIMessageDTO; onFollowUp: (q: string) =
             </T>
           </Row>
         ))}
-        <Row gap={space.sm} style={{ flexWrap: 'wrap', marginTop: 2 }}>
-          {m.followUps.slice(0, 2).map((f) => (
-            <Press key={f} onPress={() => onFollowUp(f)} accessibilityRole="button" style={{ borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-              <T v="small">{f}</T>
-            </Press>
-          ))}
-        </Row>
         <T v="caption" tone="tertiary">
           {m.insufficient ? 'Based on the data available so far.' : 'Calculated from your connected accounts.'}
         </T>

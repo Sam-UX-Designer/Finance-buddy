@@ -69,7 +69,7 @@ export default function WealthScreen() {
               <Banner tone="warning" title="Partial data" body="Some accounts didn't sync, so your net worth may be understated." />
             </View>
           ) : null}
-          <Card muted style={{ borderRadius: radius.xl, padding: space.xl }}>
+          <Card style={{ borderRadius: radius.xl, padding: space.xl }}>
             <Row style={{ alignItems: 'flex-start', gap: space.md }}>
               <View style={{ flex: 1 }}>
                 <T v="body" tone="secondary">

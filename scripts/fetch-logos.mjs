@@ -62,8 +62,9 @@ const SOURCES = [
   // Banks and other account providers.
   ['bank-hdfc', [], 'hdfcbank.com'],
   ['bank-icici', ['com.csam.icici.bank.imobile'], 'icicibank.com'],
-  ['bank-axis', ['com.axis.mobile'], 'axisbank.com'],
-  ['bank-sbi', ['com.sbi.upi'], 'sbi.co.in'],
+  // Axis and SBI app icons are app brands ("open", "SBI Pay"), not the bank logo: website icon only.
+  ['bank-axis', [], 'axisbank.com'],
+  ['bank-sbi', [], 'sbi.co.in'],
   ['bank-cams', [], 'camsonline.com'],
   ['bank-epfo', [], 'epfindia.gov.in'],
 ];

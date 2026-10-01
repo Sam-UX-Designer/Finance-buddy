@@ -82,7 +82,7 @@ export function ChatHistorySheet({
         <ErrorState error={history.error} onRetry={() => history.refetch()} />
       ) : !groups.length ? (
         <T v="small" tone="secondary" style={{ marginTop: space.xl, textAlign: 'center' }}>
-          No past chats yet. Your questions to SI will show up here.
+          No past chats yet. Your questions to Super Intelligence will show up here.
         </T>
       ) : (
         groups.map((g) => (

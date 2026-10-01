@@ -514,7 +514,7 @@ function SINoticed({ d }: { d: HomeDTO }) {
         <SIOrb size={34} />
         <View style={{ flex: 1, gap: 6, paddingTop: 6 }}>
           <T v="body" tone={i ? 'primary' : 'secondary'}>
-            {i ? i.body : 'Not enough evidence for an insight yet. SI only speaks up when your data clearly shows something worth knowing.'}
+            {i ? i.body : 'Not enough evidence for an insight yet. Super Intelligence only speaks up when your data clearly shows something worth knowing.'}
           </T>
         </View>
         {i?.categoryId ? (

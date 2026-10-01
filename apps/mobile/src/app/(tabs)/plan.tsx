@@ -76,7 +76,7 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
   return (
     <FadeIn>
       {d.goals.length === 0 ? (
-        <EmptyState title="No goals yet" body="Add a goal (an emergency fund, a laptop, a trip) and SI will track whether you're on course." />
+        <EmptyState title="No goals yet" body="Add a goal (an emergency fund, a laptop, a trip) and Super Intelligence will track whether you're on course." />
       ) : (
         <View>
           {d.goals.map((g, i) => (
@@ -143,13 +143,11 @@ function NumbersActions({ estimated }: { estimated: boolean }) {
     <View style={{ marginTop: space.lg, gap: space.sm }}>
       {estimated ? (
         <T v="caption" tone="secondary">
-          These numbers are estimates from your bank data. Confirm them with SI so your plan fits you.
+          These numbers are estimates from your bank data. Confirm them with Super Intelligence so your plan fits you.
         </T>
       ) : null}
-      <Row gap={space.sm}>
-        <Button label={estimated ? 'Set up with SI' : 'Update with SI'} size="md" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/(tabs)/si', params: { setup: '1' } })} />
-        <Button label="Edit numbers" size="md" variant="secondary" style={{ flex: 1 }} onPress={() => router.push('/assumptions')} />
-      </Row>
+      <Button label={estimated ? 'Set up with Super Intelligence' : 'Update with Super Intelligence'} size="md" onPress={() => router.push({ pathname: '/(tabs)/si', params: { setup: '1' } })} />
+      <Button label="Edit numbers myself" size="md" variant="secondary" onPress={() => router.push('/assumptions')} />
     </View>
   );
 }

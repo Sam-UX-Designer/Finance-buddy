@@ -148,7 +148,7 @@ export default function SIScreen() {
           </View>
         ) : !si.data ? (
           <View style={{ flex: 1, paddingTop: header }}>
-            <LoadingState label="SI is reading your latest numbers…" />
+            <LoadingState label="Super Intelligence is reading your latest numbers…" />
           </View>
         ) : (
           <ScrollView
@@ -220,7 +220,7 @@ export default function SIScreen() {
                 {pending ? (
                   <>
                     <UserBubble text={pending} />
-                    <Row gap={space.sm} accessibilityLabel="SI is working on your answer" accessibilityLiveRegion="polite">
+                    <Row gap={space.sm} accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
                       <ActivityIndicator size="small" color={c.textSecondary} />
                       <T v="small" tone="secondary">
                         Checking your numbers…

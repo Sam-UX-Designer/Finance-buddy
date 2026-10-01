@@ -11,7 +11,7 @@ export type WidgetId = 'today' | 'month' | 'si' | 'investments' | 'upcoming' | '
 export const WIDGET_TITLES: Record<WidgetId, string> = {
   today: 'Spending',
   month: 'This Month',
-  si: 'SI noticed',
+  si: 'Super Intelligence',
   investments: 'Investments',
   upcoming: 'Upcoming Payments',
   networth: 'Net worth',

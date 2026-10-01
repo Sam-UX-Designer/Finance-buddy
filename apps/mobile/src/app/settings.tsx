@@ -149,7 +149,7 @@ export default function SettingsScreen() {
         <SectionTitle>Privacy</SectionTitle>
         <Card>
           <T v="small" tone="secondary">
-            Your data comes only from accounts you approve through an RBI-regulated Account Aggregator. We never ask for bank passwords, we store sensitive fields encrypted, and we don't use your financial data to train AI models. SI works from calculated summaries, not raw bank statements.
+            Your data comes only from accounts you approve through an RBI-regulated Account Aggregator. We never ask for bank passwords, we store sensitive fields encrypted, and we don't use your financial data to train AI models. Super Intelligence works from calculated summaries, not raw bank statements.
           </T>
         </Card>
       </View>

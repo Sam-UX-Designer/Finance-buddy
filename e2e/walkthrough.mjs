@@ -81,13 +81,7 @@ try {
     await text('What you’ll share').waitFor();
     await page.waitForTimeout(400);
     await shot('consent');
-    await page.getByRole('button', { name: 'Continue to secure consent' }).filter({ visible: true }).last().click();
-  });
-  await step('approve', async () => {
-    await text('Approve data sharing').waitFor();
-    await text('Requested by').waitFor();
-    await shot('aa-approve');
-    await page.getByRole('button', { name: 'Approve' }).filter({ visible: true }).last().click();
+    await page.getByRole('button', { name: 'Approve & connect' }).filter({ visible: true }).last().click();
   });
   await step('sync', async () => {
     await text('Understanding').waitFor();
@@ -158,10 +152,8 @@ try {
     await page.getByRole('button', { name: 'Add a New Goal' }).filter({ visible: true }).last().click();
     await text('New goal').waitFor();
     await page.getByRole('button', { name: 'Emergency Fund' }).filter({ visible: true }).last().click();
-    await page.getByLabel('Target amount').filter({ visible: true }).last().fill('300000').catch(async () => {
-      await page.getByPlaceholder('3,00,000').filter({ visible: true }).last().fill('300000');
-    });
-    await page.getByPlaceholder('10,000').filter({ visible: true }).last().fill('15000');
+    await page.getByRole('button', { name: '₹5L' }).filter({ visible: true }).last().click();
+    await page.getByRole('button', { name: /reaches it on time/ }).filter({ visible: true }).last().click();
     await shot('goal-new');
     await page.getByRole('button', { name: 'Create goal' }).filter({ visible: true }).last().click();
     await text('Emergency Fund').waitFor();

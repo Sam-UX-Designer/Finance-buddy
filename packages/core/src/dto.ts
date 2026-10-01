@@ -167,13 +167,32 @@ export type SyncHealth = 'OK' | 'PARTIAL' | 'SYNCING' | 'FAILED' | 'NO_DATA';
 export interface HomeDTO {
   greeting: string;
   name: string | null;
-  balance: { total: Paise; accountCount: number; asOf: string | null };
+  balance: { total: Paise; accountCount: number; asOf: string | null; accounts: HomeAccount[] };
   month: { key: string; label: string; income: Paise; spent: Paise; invested: Paise; savingsRatePct: number | null };
   insight: Insight | null;
   upcoming: { count: number; total: Paise; days: number; items: UpcomingPayment[] };
-  wealth: { netWorth: Paise; change: Paise; changePct: number | null; sinceDate: string } | null;
+  wealth: {
+    netWorth: Paise;
+    assets: Paise;
+    liabilities: Paise;
+    /** What net worth is made of, largest first. */
+    parts: { kind: string; label: string; value: Paise }[];
+    change: Paise;
+    changePct: number | null;
+    sinceDate: string;
+  } | null;
   sync: { health: SyncHealth; lastSyncedAt: string | null; message: string | null };
   unreadNotifications: number;
+}
+/** A connected bank account as shown on the Home balance cards. */
+export interface HomeAccount {
+  id: string;
+  fip: FipDTO;
+  typeLabel: string;
+  maskedNumber: string;
+  balance: Paise;
+  balanceAsOf: string | null;
+  lastSyncedAt: string | null;
 }
 
 // ── Activity ─────────────────────────────────────────────────────────

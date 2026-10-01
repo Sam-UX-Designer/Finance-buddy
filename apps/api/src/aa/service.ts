@@ -126,7 +126,7 @@ export async function consentPreview(ctx: AppContext, userId: string, accountIds
     dataRangeLabel: `Last ${HISTORY_MONTHS} months`,
     durationLabel: `${CONSENT_YEARS} year`,
     frequencyLabel: 'Refreshed up to once a day',
-    provider: ctx.aa.name === 'mock' ? 'Account Aggregator (sandbox)' : 'Account Aggregator',
+    provider: 'Account Aggregator',
   };
 }
 

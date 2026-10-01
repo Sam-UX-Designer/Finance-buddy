@@ -7,7 +7,7 @@ import { errorMessage } from '@/lib/api';
 import { useDeleteGoal, useGoal, usePlan, useSaveGoal } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
-import { bodyFrom, draftFrom, GoalForm, type GoalDraft } from '@/features/GoalForm';
+import { bodyFrom, draftFrom, GoalForm, missingFor, type GoalDraft } from '@/features/GoalForm';
 import { Button, IconButton } from '@/ui/controls';
 import { EmojiAvatar } from '@/ui/display';
 import { BackHeader, Banner, ErrorState, FadeIn, LoadingState, Screen, Sheet } from '@/ui/layout';
@@ -124,7 +124,7 @@ export default function GoalScreen() {
         title="Edit goal"
         footer={
           <Button
-            label="Save"
+            label={draft && missingFor(draft) ? missingFor(draft)! : 'Save'}
             disabled={!draft || !bodyFrom(draft)}
             loading={save.isPending}
             onPress={async () => {

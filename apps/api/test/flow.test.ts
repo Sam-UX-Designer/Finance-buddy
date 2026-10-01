@@ -60,7 +60,7 @@ describe('auth', () => {
     const t = await setup();
     expect((await t.call('POST', '/v1/auth/otp', { phone: '12345' })).status).toBe(400);
     const otp = await t.call('POST', '/v1/auth/otp', { phone: '+91 98765 43210' });
-    expect(otp.json).toMatchObject({ maskedPhone: '+91 98765 43210', devHint: 'Development mode: use 123456' });
+    expect(otp.json).toMatchObject({ maskedPhone: '+91 98765 43210', devHint: 'Test login: use code 123456' });
     expect((await t.call('POST', '/v1/auth/otp', { phone: '9876543210' })).status).toBe(429); // resend cooldown
     const wrong = await t.call('POST', '/v1/auth/verify', { challengeId: otp.json.challengeId, code: '000000' });
     expect(wrong.json.error.code).toBe('OTP_INVALID');

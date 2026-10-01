@@ -27,6 +27,11 @@ describe('money', () => {
     expect(parseRupeeInput('1,20,000')).toBe(12000000);
     expect(parseRupeeInput('₹422.50')).toBe(42250);
     expect(parseRupeeInput('abc')).toBeNull();
+    expect(parseRupeeInput('5L')).toBe(50000000);
+    expect(parseRupeeInput('5 lakh')).toBe(50000000);
+    expect(parseRupeeInput('1.5Cr')).toBe(1500000000);
+    expect(parseRupeeInput('50k')).toBe(5000000);
+    expect(parseRupeeInput('5x')).toBeNull();
   });
 });
 

@@ -43,7 +43,6 @@ function Navigator() {
       >
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="onboarding/approve" options={{ presentation: 'modal', animation: reduceMotion ? 'none' : 'slide_from_bottom' }} />
         <Stack.Screen name="onboarding/success" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="onboarding/sync" options={{ gestureEnabled: false }} />
       </Stack>

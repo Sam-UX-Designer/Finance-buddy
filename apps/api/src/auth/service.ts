@@ -71,7 +71,7 @@ export async function requestOtp(ctx: AppContext, rawPhone: string, ip: string):
     maskedPhone: `+91 ${phone.slice(0, 5)} ${phone.slice(5)}`,
     expiresAt,
     resendAfter,
-    ...(ctx.sms.name === 'dev' && ctx.sms.fixedCode ? { devHint: `Development mode: use ${ctx.sms.fixedCode}` } : {}),
+    ...(ctx.sms.name === 'dev' && ctx.sms.fixedCode ? { devHint: `Test login: use code ${ctx.sms.fixedCode}` } : {}),
   };
 }
 

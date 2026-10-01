@@ -115,6 +115,15 @@ e2e              Browser walkthrough
 - SI only states facts produced by engine tools. If there isn't enough data, it says so.
 - No bank passwords, ever. Sensitive fields are encrypted at rest (AES-256-GCM).
 
+## Adding brand and bank logos
+
+Drop logo images (square PNG, ideally 256×256) into `apps/mobile/assets/logos/`, named by key:
+
+- Merchants: the merchant key from `packages/core/src/merchants.ts`, e.g. `swiggy.png`, `blinkit.png`, `rapido.png`.
+- Banks: `bank-<id>`, e.g. `bank-hdfc.png`, `bank-icici.png`, `bank-axis.png`, `bank-sbi.png`, `bank-cams.png`, `bank-epfo.png`.
+
+Then run `npm run logos`. Anything without a logo falls back to a 3D category icon (merchants) or a bank monogram.
+
 ## Credits
 
 - 3D icons: [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT).

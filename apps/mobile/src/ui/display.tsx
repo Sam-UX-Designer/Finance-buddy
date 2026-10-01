@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Image, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { formatINR, type CategoryId, type FipDTO, type Paise, type TxnType } from '@finance-buddy/core';
@@ -8,6 +8,7 @@ import { radius, space, type TypeVariant } from '@/theme/tokens';
 import type { Palette } from '@/theme/tokens';
 import { BRAND_LOGOS } from './brands';
 import { icon3d } from './icons3d';
+import { LOGOS } from './logos';
 import { Press, Row, T } from './primitives';
 
 /** Soft background tint per category for merchant avatars. */
@@ -28,13 +29,15 @@ const CATEGORY_TINT: Partial<Record<CategoryId, keyof Palette>> = {
 };
 
 /**
- * Round avatar for a category, goal or merchant: the merchant's logo when we have it,
+ * Round avatar for a category, goal or merchant: the merchant's real logo when we have it,
  * otherwise a 3D icon for the emoji, otherwise the emoji itself.
  */
 export function EmojiAvatar({ emoji, categoryId, merchantKey, size = 40 }: { emoji: string; categoryId?: CategoryId; merchantKey?: string; size?: number }) {
   const { c } = useTheme();
-  const logo = merchantKey ? BRAND_LOGOS[merchantKey] : undefined;
-  if (logo) return <BrandTile hex={logo.hex} path={logo.path} label={logo.title} size={size} round />;
+  const photo = merchantKey ? LOGOS[merchantKey] : undefined;
+  if (photo) return <LogoImage source={photo} size={size} radius={size / 2} label={merchantKey!} />;
+  const glyph = merchantKey ? BRAND_LOGOS[merchantKey] : undefined;
+  if (glyph) return <BrandTile hex={glyph.hex} path={glyph.path} label={glyph.title} size={size} round />;
   const tint = (categoryId && CATEGORY_TINT[categoryId]) || 'surfaceMuted';
   const img = icon3d(emoji);
   return (
@@ -44,6 +47,16 @@ export function EmojiAvatar({ emoji, categoryId, merchantKey, size = 40 }: { emo
       ) : (
         <T style={{ fontSize: size * 0.46, lineHeight: size * 0.6 }}>{emoji}</T>
       )}
+    </View>
+  );
+}
+
+/** An uploaded logo image, clipped to a circle or rounded square on a white base. */
+function LogoImage({ source, size, radius: r, label }: { source: ImageSourcePropType; size: number; radius: number; label: string }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ width: size, height: size, borderRadius: r, overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: c.border }} accessibilityLabel={label}>
+      <Image source={source} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityIgnoresInvertColors />
     </View>
   );
 }
@@ -65,6 +78,8 @@ function BrandTile({ hex, path, label, size, round }: { hex: string; path: strin
 
 /** Bank / FIP mark: the bank's logo when available, otherwise a monogram in its colour. */
 export function FipMark({ fip, size = 36 }: { fip: FipDTO; size?: number }) {
+  const photo = LOGOS[`bank-${fip.id}`];
+  if (photo) return <LogoImage source={photo} size={size} radius={size * 0.28} label={fip.name} />;
   const logo = BRAND_LOGOS[fip.id];
   if (logo) return <BrandTile hex={logo.hex} path={logo.path} label={fip.name} size={size} />;
   return (
@@ -75,6 +90,26 @@ export function FipMark({ fip, size = 36 }: { fip: FipDTO; size?: number }) {
       <T v="bodySemibold" color="#FFFFFF" style={{ fontSize: size * 0.44, lineHeight: size * 0.56 }}>
         {fip.monogram}
       </T>
+    </View>
+  );
+}
+
+/** Bank logo on a white tile, for use on top of a coloured bank card. */
+export function BankLogo({ fip, size = 32 }: { fip: FipDTO; size?: number }) {
+  const photo = LOGOS[`bank-${fip.id}`];
+  if (photo) return <LogoImage source={photo} size={size} radius={size * 0.28} label={fip.name} />;
+  const logo = BRAND_LOGOS[fip.id];
+  return (
+    <View style={{ width: size, height: size, borderRadius: size * 0.28, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={fip.name}>
+      {logo ? (
+        <Svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24">
+          <Path d={logo.path} fill={logo.hex} />
+        </Svg>
+      ) : (
+        <T v="bodySemibold" color={fip.color} style={{ fontSize: size * 0.46, lineHeight: size * 0.58 }}>
+          {fip.monogram}
+        </T>
+      )}
     </View>
   );
 }

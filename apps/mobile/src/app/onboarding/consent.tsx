@@ -44,7 +44,10 @@ export default function ConsentScreen() {
       const consent = await onboardingApi.createConsent(accountIds);
       const url = consent.approvalUrl ?? '';
       if (url.startsWith('sandbox:')) {
-        router.push({ pathname: '/onboarding/approve', params: { pid: url.slice(8), cid: consent.id } });
+        // Test mode: tapping Approve here is the approval (no separate Account Aggregator step).
+        const approved = await onboardingApi.sandboxDecide(url.slice(8), 'approve');
+        if (approved.status !== 'ACTIVE') throw new Error('Could not connect your accounts. Please try again.');
+        router.replace('/onboarding/sync');
       } else if (url) {
         // Production: the AA partner's hosted consent page; the webhook updates status server-side.
         await WebBrowser.openAuthSessionAsync(url, 'financebuddy://consent-complete');
@@ -67,9 +70,9 @@ export default function ConsentScreen() {
         preview ? (
           <View style={{ gap: space.md }}>
             {submitError ? <Banner tone="negative" title={submitError} /> : null}
-            <Button label="Continue to secure consent" onPress={proceed} loading={submitting} accessibilityHint="Opens the Account Aggregator to approve sharing" />
+            <Button label="Approve & connect" onPress={proceed} loading={submitting} />
             <T v="caption" tone="tertiary" align="center">
-              You can manage or revoke consent anytime.
+              You can stop sharing anytime in Settings.
             </T>
           </View>
         ) : null
@@ -134,9 +137,9 @@ export default function ConsentScreen() {
           <Row gap={space.md} style={{ marginTop: space.xl, padding: space.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border }}>
             <ShieldCheck size={22} color={c.textSecondary} strokeWidth={1.6} />
             <View style={{ flex: 1 }}>
-              <T v="smallMedium">{`Powered by ${preview.provider}`}</T>
+              <T v="smallMedium">Secure, RBI-regulated connection</T>
               <T v="caption" tone="secondary">
-                RBI-regulated. Finance Buddy never sees your bank password.
+                Finance Buddy never sees your bank password.
               </T>
             </View>
           </Row>

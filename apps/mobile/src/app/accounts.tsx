@@ -114,7 +114,7 @@ export default function AccountsScreen() {
                   <T v="small" tone="secondary" style={{ marginTop: space.sm }}>
                     {x.dataShared.join(' · ')}
                   </T>
-                  <T v="caption" tone="tertiary" style={{ marginTop: 4 }}>{`${x.frequency} · valid till ${formatDate(x.expiresAt)} · via ${x.provider === 'mock' ? 'AA sandbox' : x.provider}`}</T>
+                  <T v="caption" tone="tertiary" style={{ marginTop: 4 }}>{`${x.frequency} · valid till ${formatDate(x.expiresAt)}${x.provider === 'mock' ? '' : ` · via ${x.provider}`}`}</T>
                   {x.status === 'ACTIVE' || x.status === 'PENDING' ? (
                     <Button label="Revoke consent" variant="danger" size="sm" style={{ marginTop: space.md, alignSelf: 'flex-start' }} onPress={() => setRevoking(x)} />
                   ) : null}

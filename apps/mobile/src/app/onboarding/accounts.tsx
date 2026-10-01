@@ -89,14 +89,19 @@ export default function AccountsScreen() {
         {pending ? (
           <Banner
             tone="info"
-            title="Waiting for your approval"
-            body="Your last connection request is still pending in the Account Aggregator."
+            title="Finish connecting"
+            body="You started connecting these accounts. Continue to see your money in one place."
             action="Continue"
-            onAction={() =>
-              pending.approvalUrl?.startsWith('sandbox:')
-                ? router.push({ pathname: '/onboarding/approve', params: { pid: pending.approvalUrl.slice(8), cid: pending.id } })
-                : router.push({ pathname: '/onboarding/consent', params: { ids: pending.accounts.map((a) => a.id).join(','), consentId: pending.id } })
-            }
+            onAction={() => {
+              if (pending.approvalUrl?.startsWith('sandbox:')) {
+                void onboardingApi
+                  .sandboxDecide(pending.approvalUrl.slice(8), 'approve')
+                  .then(() => router.replace('/onboarding/sync'))
+                  .catch(() => router.push({ pathname: '/onboarding/consent', params: { ids: pending.accounts.map((a) => a.id).join(',') } }));
+              } else {
+                router.push({ pathname: '/onboarding/consent', params: { ids: pending.accounts.map((a) => a.id).join(','), consentId: pending.id } });
+              }
+            }}
           />
         ) : null}
       </View>

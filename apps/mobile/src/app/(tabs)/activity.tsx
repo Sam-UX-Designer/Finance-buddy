@@ -45,7 +45,7 @@ function dayLabel(iso: string): string {
 export default function ActivityScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ filter?: ActivityFilter; month?: string }>();
+  const params = useLocalSearchParams<{ filter?: ActivityFilter; month?: string; accountId?: string }>();
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [query, setQuery] = useState('');
   const [q, setQ] = useState('');
@@ -57,7 +57,8 @@ export default function ActivityScreen() {
   useEffect(() => {
     if (params.filter) setFilter(params.filter);
     if (params.month) setMonth(params.month);
-  }, [params.filter, params.month]);
+    if (params.accountId) setAccountId(params.accountId);
+  }, [params.filter, params.month, params.accountId]);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(query.trim()), 250);

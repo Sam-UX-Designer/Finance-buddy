@@ -1,0 +1,46 @@
+// Quick visual check of the Home balance cards: swipe, flip and mouse tilt.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+let playwright;
+try { playwright = require('playwright'); } catch { playwright = require('/opt/node-tools/node_modules/playwright'); }
+const WEB = process.argv[2] ?? 'http://localhost:8081';
+const OUT = process.argv[3];
+const browser = await playwright.chromium.launch();
+const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+const vis = (l) => l.filter({ visible: true }).last();
+await page.goto(WEB);
+await vis(page.getByLabel('Mobile number')).fill(`9${Math.floor(100000000 + Math.random() * 899999999)}`, { timeout: 20000 });
+await vis(page.getByRole('button', { name: 'Continue' })).click();
+await vis(page.getByLabel('One-time code')).fill('123456');
+await page.getByText('We found your').first().waitFor({ timeout: 20000 });
+await vis(page.getByRole('button', { name: /Continue \(\d+ selected\)/ })).click();
+await vis(page.getByRole('button', { name: 'Approve & connect' })).click();
+await page.getByText('You’re all set').first().waitFor({ timeout: 30000 });
+await vis(page.getByRole('button', { name: /Go to|Continue|Open|Start/ })).click().catch(() => {});
+await page.getByText('Total Balance').first().waitFor({ timeout: 20000 });
+await page.waitForTimeout(800);
+const card = vis(page.getByRole('button', { name: /^Total balance/ }));
+await card.scrollIntoViewIfNeeded();
+const box = await card.boundingBox();
+// mouse tilt toward top-right
+await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.15);
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${OUT}/c1-tilt.png`, clip: { x: 0, y: box.y - 20, width: 390, height: box.height + 120 } });
+await card.click({ position: { x: box.width * 0.4, y: box.height * 0.5 } });
+await page.waitForTimeout(900);
+await page.mouse.move(5, 5);
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/c2-total-back.png`, clip: { x: 0, y: box.y - 20, width: 390, height: box.height + 120 } });
+await vis(page.getByRole('button', { name: /HDFC Bank card/ })).click();
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${OUT}/c3-hdfc-front.png`, clip: { x: 0, y: box.y - 20, width: 390, height: box.height + 120 } });
+await vis(page.getByRole('button', { name: /^HDFC Bank Savings/ })).click({ position: { x: 150, y: 110 } });
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${OUT}/c4-hdfc-back.png`, clip: { x: 0, y: box.y - 20, width: 390, height: box.height + 120 } });
+await vis(page.getByRole('button', { name: /ICICI Bank card/ })).click();
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${OUT}/c5-icici.png`, clip: { x: 0, y: box.y - 20, width: 390, height: box.height + 120 } });
+console.log(errors.length ? errors.join('\n') : 'no page errors');
+await browser.close();

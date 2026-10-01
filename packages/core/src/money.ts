@@ -98,9 +98,18 @@ function trim(n: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
-/** Parses user-entered rupee text ("1,20,000.50") into paise. Returns null if invalid. */
+const UNIT: Record<string, number> = { k: 1e3, thousand: 1e3, l: 1e5, lac: 1e5, lacs: 1e5, lakh: 1e5, lakhs: 1e5, cr: 1e7, crore: 1e7, crores: 1e7 };
+
+/**
+ * Parses user-entered rupee text into paise: "1,20,000.50", "50K", "5L", "5 lakh", "1.5Cr".
+ * Returns null if invalid.
+ */
 export function parseRupeeInput(text: string): Paise | null {
-  const cleaned = text.replace(/[₹,\s]/g, '');
-  if (!/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
-  return Math.round(Number(cleaned) * 100);
+  const cleaned = text.replace(/[₹,\s]/g, '').toLowerCase();
+  const m = cleaned.match(/^(\d+(?:\.\d+)?)([a-z]*)$/);
+  if (!m) return null;
+  const [, num, unit] = m;
+  if (!unit) return /^\d+(\.\d{0,2})?$/.test(num!) ? Math.round(Number(num) * 100) : null;
+  const mult = UNIT[unit];
+  return mult ? Math.round(Number(num) * mult * 100) : null;
 }

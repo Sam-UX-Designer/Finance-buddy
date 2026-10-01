@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Minus, Plus } from 'lucide-react-native';
-import { formatDate, formatINR, istParts, istToISO, monthName, parseRupeeInput, projectGoal, type GoalBody } from '@finance-buddy/core';
+import { formatDate, formatINR, formatINRCompact, istParts, istToISO, monthName, parseRupeeInput, projectGoal, type GoalBody } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { Chip, IconButton, TextField } from '@/ui/controls';
@@ -9,6 +9,22 @@ import { Card, Row, T } from '@/ui/primitives';
 
 const EMOJIS = ['🛟', '💻', '🏠', '✈️', '🎓', '🚗', '💍', '📈', '🎯'];
 const PRESETS = ['Emergency Fund', 'MacBook', 'House', 'Travel', 'Education', 'Wealth target'];
+/** Quick target amounts, in rupees. */
+const AMOUNTS = [50_000, 1_00_000, 2_00_000, 5_00_000, 10_00_000, 25_00_000];
+
+/** "5,00,000" style text for an amount field. */
+const asInput = (paise: number) => formatINR(paise, { decimals: 0 }).replace('₹', '');
+
+/** What's still needed before the goal can be saved (null when ready). */
+export function missingFor(d: GoalDraft): string | null {
+  if (!d.name.trim()) return 'Add a goal name';
+  const target = parseRupeeInput(d.target);
+  if (target == null) return d.target.trim() ? 'Enter the target as a number, like 5,00,000 or 5L' : 'Add a target amount';
+  if (target < 100) return 'Target must be at least ₹1';
+  if (parseRupeeInput(d.current || '0') == null) return 'Check the “Saved so far” amount';
+  if (parseRupeeInput(d.monthly || '0') == null) return 'Check the monthly amount';
+  return null;
+}
 
 export interface GoalDraft {
   name: string;
@@ -49,6 +65,9 @@ export function GoalForm({ draft, onChange, returnPct = 0 }: { draft: GoalDraft;
   const body = bodyFrom(draft);
   const nowISO = new Date().toISOString();
   const projection = useMemo(() => (body ? projectGoal({ id: 'draft', ...body }, nowISO, returnPct) : null), [JSON.stringify(body), returnPct]);
+  const targetPaise = parseRupeeInput(draft.target);
+  // Monthly amount that reaches the target by the chosen date (rounded up to the next ₹100).
+  const needed = projection && projection.status !== 'COMPLETED' ? Math.ceil(projection.requiredMonthly / 10000) * 10000 : 0;
   const shiftMonth = (delta: number) => {
     const idx = draft.year * 12 + (draft.month - 1) + delta;
     const now = istParts(nowISO);
@@ -73,7 +92,21 @@ export function GoalForm({ draft, onChange, returnPct = 0 }: { draft: GoalDraft;
           ))}
         </Row>
       </View>
-      <TextField label="Target amount" value={draft.target} onChangeText={(target) => set({ target })} keyboardType="decimal-pad" placeholder="3,00,000" prefix={<T v="bodyMedium" tone="secondary">₹</T>} />
+      <View style={{ gap: space.sm }}>
+        <TextField
+          label="Target amount"
+          value={draft.target}
+          onChangeText={(target) => set({ target })}
+          placeholder="5,00,000 or 5L"
+          error={draft.target.trim() && targetPaise == null ? 'Enter a number, like 5,00,000 or 5L' : null}
+          prefix={<T v="bodyMedium" tone="secondary">₹</T>}
+        />
+        <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
+          {AMOUNTS.map((r) => (
+            <Chip key={r} label={formatINRCompact(r * 100)} selected={targetPaise === r * 100} onPress={() => set({ target: asInput(r * 100) })} />
+          ))}
+        </Row>
+      </View>
       <View style={{ gap: 6 }}>
         <T v="smallMedium" tone="secondary">
           Target date
@@ -98,7 +131,14 @@ export function GoalForm({ draft, onChange, returnPct = 0 }: { draft: GoalDraft;
         </Row>
       </View>
       <TextField label="Saved so far" value={draft.current} onChangeText={(current) => set({ current })} keyboardType="decimal-pad" prefix={<T v="bodyMedium" tone="secondary">₹</T>} />
-      <TextField label="Monthly contribution" value={draft.monthly} onChangeText={(monthly) => set({ monthly })} keyboardType="decimal-pad" placeholder="10,000" prefix={<T v="bodyMedium" tone="secondary">₹</T>} />
+      <View style={{ gap: space.sm }}>
+        <TextField label="Monthly contribution" value={draft.monthly} onChangeText={(monthly) => set({ monthly })} keyboardType="decimal-pad" placeholder="0" hint="Optional" prefix={<T v="bodyMedium" tone="secondary">₹</T>} />
+        {needed > 0 && needed !== parseRupeeInput(draft.monthly || '0') ? (
+          <Row>
+            <Chip label={`${formatINR(needed, { decimals: 0 })}/mo reaches it on time`} onPress={() => set({ monthly: asInput(needed) })} />
+          </Row>
+        ) : null}
+      </View>
       {projection && body ? (
         <Card muted>
           <T v="smallMedium" tone="secondary">

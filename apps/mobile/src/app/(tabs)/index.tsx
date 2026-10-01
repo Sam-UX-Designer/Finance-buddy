@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, Eye, EyeOff, Sparkles, TrendingUp } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, Sparkles, TrendingUp } from 'lucide-react-native';
 import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
 import { useHome, useSync } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
+import { BalanceCards } from '@/features/BalanceCards';
 import { SendSheet } from '@/features/SendSheet';
 import { Button, IconButton } from '@/ui/controls';
 import { EmojiAvatar, IconTile, Money } from '@/ui/display';
@@ -14,7 +15,7 @@ import { Card, Press, Row, SectionTitle, T } from '@/ui/primitives';
 
 /** Home answers: "How am I doing financially right now?" (Blueprint §8). */
 export default function HomeScreen() {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const home = useHome();
   const sync = useSync();
   const [hidden, setHidden] = useState(false);
@@ -54,27 +55,16 @@ export default function HomeScreen() {
       ) : (
         <FadeIn>
           <SyncNotice d={d} />
-          {/* Balance */}
-          <View style={{ backgroundColor: c.hero, borderRadius: radius.xl, padding: space.xl, marginTop: space.lg, borderWidth: 1, borderColor: scheme === 'dark' ? c.border : c.hero }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <T v="body" tone="heroSecondary">
-                Total Balance
-              </T>
-              <Press onPress={() => setHidden((h) => !h)} accessibilityRole="button" accessibilityLabel={hidden ? 'Show balance' : 'Hide balance'} hitSlop={10} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.heroButton, alignItems: 'center', justifyContent: 'center' }}>
-                {hidden ? <Eye size={17} color={c.heroText} /> : <EyeOff size={17} color={c.heroText} />}
-              </Press>
-            </Row>
-            <View style={{ marginTop: space.sm }}>
-              <Money value={d.balance.total} v="display" color={c.heroText} decimals={2} hidden={hidden} />
-            </View>
-            <T v="small" tone="heroSecondary" style={{ marginTop: 4 }}>
-              {d.balance.accountCount ? `Across ${d.balance.accountCount} account${d.balance.accountCount === 1 ? '' : 's'}` : 'No bank accounts connected'}
-            </T>
-            <Row gap={space.md} style={{ marginTop: space.xl }}>
-              <Button label="Send" variant="hero" size="md" style={{ flex: 1 }} onPress={() => setSending(true)} />
-              <Button label="View Accounts" variant="hero" size="md" style={{ flex: 1 }} onPress={() => router.push('/accounts')} />
-            </Row>
+          {d.wealth ? <NetWorthCard w={d.wealth} hidden={hidden} /> : null}
+
+          {/* Balance cards */}
+          <View style={{ marginTop: space.lg }}>
+            <BalanceCards total={d.balance.total} accounts={d.balance.accounts} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} />
           </View>
+          <Row gap={space.md} style={{ marginTop: space.lg }}>
+            <Button label="Send" size="md" style={{ flex: 1 }} onPress={() => setSending(true)} />
+            <Button label="View Accounts" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => router.push('/accounts')} />
+          </Row>
 
           {/* This month */}
           <View style={{ marginTop: space.xxl }}>
@@ -122,33 +112,62 @@ export default function HomeScreen() {
             </Card>
           </View>
 
-          {/* Wealth snapshot */}
-          {d.wealth ? (
-            <Press onPress={() => router.push('/(tabs)/wealth')} accessibilityRole="button" accessibilityLabel="Open Wealth" style={{ marginTop: space.lg }} scaleTo={0.99}>
-              <Card>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <View>
-                    <T v="small" tone="secondary">
-                      Net worth
-                    </T>
-                    <T v="subtitle">{formatINRCompact(d.wealth.netWorth)}</T>
-                  </View>
-                  <Row gap={6}>
-                    {d.wealth.changePct != null ? (
-                      <T v="smallMedium" tone={d.wealth.change >= 0 ? 'positive' : 'negative'}>
-                        {`${d.wealth.change >= 0 ? '↑' : '↓'} ${Math.abs(d.wealth.changePct).toFixed(1)}% this year`}
-                      </T>
-                    ) : null}
-                    <ArrowRight size={14} color={c.textSecondary} />
-                  </Row>
-                </Row>
-              </Card>
-            </Press>
-          ) : null}
         </FadeIn>
       )}
       <SendSheet visible={sending} onClose={() => setSending(false)} />
     </Screen>
+  );
+}
+
+/** Net worth: what you own minus what you owe, and what it's made of. */
+function NetWorthCard({ w, hidden }: { w: NonNullable<HomeDTO['wealth']>; hidden: boolean }) {
+  const { c } = useTheme();
+  const palette = [c.info, c.positive, c.loan, c.warning, c.textTertiary];
+  const up = w.change >= 0;
+  return (
+    <Press onPress={() => router.push('/(tabs)/wealth')} accessibilityRole="button" accessibilityLabel={hidden ? 'Net worth, hidden. Open Wealth' : `Net worth ${formatINR(w.netWorth)}. Open Wealth`} style={{ marginTop: space.lg }} scaleTo={0.99}>
+      <Card>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <T v="small" tone="secondary">
+            Net worth
+          </T>
+          <Row gap={4}>
+            <T v="smallMedium" tone="secondary">
+              Details
+            </T>
+            <ArrowRight size={14} color={c.textSecondary} />
+          </Row>
+        </Row>
+        <View style={{ marginTop: 4 }}>
+          <Money value={w.netWorth} v="amount" decimals={0} hidden={hidden} />
+        </View>
+        {!hidden && w.change !== 0 ? (
+          <T v="smallMedium" tone={up ? 'positive' : 'negative'} style={{ marginTop: 2 }}>
+            {`${up ? '↑' : '↓'} ${formatINR(Math.abs(w.change), { decimals: 0 })} since ${formatDate(w.sinceDate)}`}
+          </T>
+        ) : null}
+        {w.parts.length ? (
+          <>
+            <Row gap={2} style={{ height: 8, borderRadius: 4, overflow: 'hidden', marginTop: space.md }}>
+              {w.parts.map((p, i) => (
+                <View key={p.kind} style={{ flex: p.value, height: 8, backgroundColor: palette[i % palette.length] }} />
+              ))}
+            </Row>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg, rowGap: 6, marginTop: space.md }}>
+              {w.parts.map((p, i) => (
+                <Row key={p.kind} gap={6}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[i % palette.length] }} />
+                  <T v="caption" tone="secondary">{`${p.label} ${hidden ? '••••' : formatINRCompact(p.value)}`}</T>
+                </Row>
+              ))}
+            </View>
+          </>
+        ) : null}
+        <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
+          {w.liabilities > 0 ? 'Everything you own minus loans you owe.' : 'Everything you own: bank balance, investments, EPF and money lent. No loans connected.'}
+        </T>
+      </Card>
+    </Press>
   );
 }
 
@@ -235,7 +254,8 @@ function SyncNotice({ d }: { d: HomeDTO }) {
 function HomeSkeleton() {
   return (
     <View style={{ gap: space.lg, marginTop: space.lg }} accessibilityLabel="Loading your snapshot">
-      <Skeleton height={190} style={{ borderRadius: radius.xl }} />
+      <Skeleton height={150} style={{ borderRadius: radius.xl }} />
+      <Skeleton height={210} style={{ borderRadius: radius.xl }} />
       <Skeleton height={18} width="40%" />
       <Row gap={space.sm}>
         <Skeleton height={70} style={{ flex: 1 }} width="32%" />

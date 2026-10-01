@@ -35,7 +35,7 @@ import {
   type WealthDTO,
 } from '@finance-buddy/core';
 import type { AppContext } from '../context';
-import { fip } from '../aa/fips';
+import { ACCOUNT_TYPE_LABELS, fip } from '../aa/fips';
 import { listAccounts, type AccountRow } from '../repo/accounts';
 import { latestJob } from '../repo/jobs';
 import { unreadCount } from '../repo/misc';
@@ -76,6 +76,17 @@ export async function homeDTO(ctx: AppContext, userId: string): Promise<HomeDTO>
       total: totalCash(state.accounts),
       accountCount: deposits.length,
       asOf: deposits.reduce<string | null>((m, a) => (!m || a.balanceAsOf > m ? a.balanceAsOf : m), null),
+      accounts: rows
+        .filter((r) => r.type === 'SAVINGS' || r.type === 'CURRENT')
+        .map((r) => ({
+          id: r.id,
+          fip: fip(r.fip_id),
+          typeLabel: ACCOUNT_TYPE_LABELS[r.type],
+          maskedNumber: r.masked_number,
+          balance: r.current_balance,
+          balanceAsOf: r.balance_as_of,
+          lastSyncedAt: r.last_synced_at,
+        })),
     },
     month: {
       key: istMonthKey(state.now),
@@ -87,7 +98,21 @@ export async function homeDTO(ctx: AppContext, userId: string): Promise<HomeDTO>
     },
     insight: topInsight(state, fctx),
     upcoming: { count: upcoming.length, total: upcoming.reduce((s, u) => s + u.amount, 0), days: 30, items: upcoming.slice(0, 5) },
-    wealth: nw && change ? { netWorth: nw.netWorth, change: change.change, changePct: change.changePct, sinceDate: change.sinceDate } : null,
+    wealth:
+      nw && change
+        ? {
+            netWorth: nw.netWorth,
+            assets: nw.assets,
+            liabilities: nw.liabilities,
+            parts: nw.lines
+              .filter((l) => l.value > 0)
+              .sort((a, b) => b.value - a.value)
+              .map((l) => ({ kind: l.kind, label: l.kind === 'SAVINGS' ? 'Bank balance' : l.label, value: l.value })),
+            change: change.change,
+            changePct: change.changePct,
+            sinceDate: change.sinceDate,
+          }
+        : null,
     sync: { health, lastSyncedAt, message },
     unreadNotifications: await unreadCount(ctx, userId),
   };

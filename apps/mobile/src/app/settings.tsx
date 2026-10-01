@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { ChevronRight, FlaskConical, Landmark, LogOut, Smartphone, Trash } from 'lucide-react-native';
+import { ChevronRight, Info, Landmark, LogOut, Smartphone, Trash } from 'lucide-react-native';
 import { formatDate, type ThemePreference } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
 import { useHealth, useSessions } from '@/lib/queries';
@@ -35,9 +35,9 @@ export default function SettingsScreen() {
       <BackHeader title="Settings" />
       {health.data?.aa === 'mock' ? (
         <Row gap={space.sm} style={{ backgroundColor: c.warningSoft, padding: space.md, borderRadius: 12, marginBottom: space.lg }}>
-          <FlaskConical size={16} color={c.warning} />
+          <Info size={16} color={c.warning} />
           <T v="small" tone="secondary" style={{ flex: 1 }}>
-            Sandbox mode: accounts and transactions come from a test Account Aggregator persona, not a real bank.
+            Sample data: your real bank accounts aren’t connected yet.
           </T>
         </Row>
       ) : null}

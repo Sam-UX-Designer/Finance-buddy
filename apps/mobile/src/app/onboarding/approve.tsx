@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { FlaskConical } from 'lucide-react-native';
-import { formatDate } from '@moneymate/core';
+import { formatDate } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { onboardingApi } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -16,7 +16,7 @@ type SandboxConsent = Awaited<ReturnType<typeof onboardingApi.sandbox>>;
 
 /**
  * Sandbox stand-in for the Account Aggregator's own approval page. In production this step happens
- * on the AA partner's secure page (with the AA's own OTP), not inside MoneyMate.
+ * on the AA partner's secure page (with the AA's own OTP), not inside Finance Buddy.
  */
 export default function ApproveScreen() {
   const { c } = useTheme();
@@ -82,14 +82,14 @@ export default function ApproveScreen() {
             Approve data sharing
           </T>
           <T v="small" tone="secondary" align="center">
-            MoneyMate is requesting access to the accounts below. This sandbox simulates your AA app — in production you’ll approve on your Account Aggregator’s secure page.
+            Finance Buddy is requesting access to the accounts below. This sandbox simulates your AA app — in production you’ll approve on your Account Aggregator’s secure page.
           </T>
           <Card>
             <T v="smallMedium" tone="secondary">
               Requested by
             </T>
             <T v="bodySemibold" style={{ marginTop: 2 }}>
-              MoneyMate
+              Finance Buddy
             </T>
             <T v="small" tone="secondary" style={{ marginTop: space.sm }}>
               {data.purpose}

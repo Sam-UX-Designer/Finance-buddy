@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Bell, CalendarClock, ShieldCheck, Sparkles, RefreshCw, Link } from 'lucide-react-native';
-import { formatDate, formatTime, type NotificationDTO } from '@moneymate/core';
+import { formatDate, formatTime, type NotificationDTO } from '@finance-buddy/core';
 import { api } from '@/lib/api';
 import { useNotifications, useInvalidateFinance } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';

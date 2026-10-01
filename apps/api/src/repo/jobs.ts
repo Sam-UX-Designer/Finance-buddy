@@ -1,4 +1,4 @@
-import type { JobDTO, JobStatus, JobStep, StepStatus } from '@moneymate/core';
+import type { JobDTO, JobStatus, JobStep, StepStatus } from '@finance-buddy/core';
 import { nowISO, type AppContext } from '../context';
 import { newId } from '../lib/crypto';
 
@@ -13,35 +13,35 @@ interface JobRow {
   updated_at: string;
 }
 
-export function createJob(ctx: AppContext, userId: string, kind: JobRow['kind'], steps: { key: string; label: string }[]): JobDTO {
+export async function createJob(ctx: AppContext, userId: string, kind: JobRow['kind'], steps: { key: string; label: string }[]): Promise<JobDTO> {
   const id = newId('job');
   const now = nowISO(ctx);
   const s: JobStep[] = steps.map((x) => ({ ...x, status: 'PENDING' }));
-  ctx.db.run('INSERT INTO jobs (id, user_id, kind, status, steps, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', id, userId, kind, 'RUNNING', JSON.stringify(s), now, now);
-  return getJob(ctx, userId, id)!;
+  await ctx.db.run('INSERT INTO jobs (id, user_id, kind, status, steps, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', id, userId, kind, 'RUNNING', JSON.stringify(s), now, now);
+  return (await getJob(ctx, userId, id))!;
 }
 
-export function getJob(ctx: AppContext, userId: string, id: string): JobDTO | undefined {
-  const row = ctx.db.get<JobRow>('SELECT * FROM jobs WHERE user_id = ? AND id = ?', userId, id);
+export async function getJob(ctx: AppContext, userId: string, id: string): Promise<JobDTO | undefined> {
+  const row = await ctx.db.get<JobRow>('SELECT * FROM jobs WHERE user_id = ? AND id = ?', userId, id);
   return row ? toDTO(row) : undefined;
 }
 
-export function latestJob(ctx: AppContext, userId: string, kind: JobRow['kind']): JobDTO | undefined {
-  const row = ctx.db.get<JobRow>('SELECT * FROM jobs WHERE user_id = ? AND kind = ? ORDER BY created_at DESC, rowid DESC LIMIT 1', userId, kind);
+export async function latestJob(ctx: AppContext, userId: string, kind: JobRow['kind']): Promise<JobDTO | undefined> {
+  const row = await ctx.db.get<JobRow>('SELECT * FROM jobs WHERE user_id = ? AND kind = ? ORDER BY n DESC LIMIT 1', userId, kind);
   return row ? toDTO(row) : undefined;
 }
 
-export function setStep(ctx: AppContext, jobId: string, key: string, status: StepStatus): void {
-  const row = ctx.db.get<JobRow>('SELECT * FROM jobs WHERE id = ?', jobId);
+export async function setStep(ctx: AppContext, jobId: string, key: string, status: StepStatus): Promise<void> {
+  const row = await ctx.db.get<JobRow>('SELECT * FROM jobs WHERE id = ?', jobId);
   if (!row) return;
   const steps: JobStep[] = JSON.parse(row.steps);
   const step = steps.find((s) => s.key === key);
   if (step) step.status = status;
-  ctx.db.run('UPDATE jobs SET steps = ?, updated_at = ? WHERE id = ?', JSON.stringify(steps), nowISO(ctx), jobId);
+  await ctx.db.run('UPDATE jobs SET steps = ?, updated_at = ? WHERE id = ?', JSON.stringify(steps), nowISO(ctx), jobId);
 }
 
-export function finishJob(ctx: AppContext, jobId: string, status: JobStatus, error: string | null = null): void {
-  ctx.db.run('UPDATE jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?', status, error, nowISO(ctx), jobId);
+export async function finishJob(ctx: AppContext, jobId: string, status: JobStatus, error: string | null = null): Promise<void> {
+  await ctx.db.run('UPDATE jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?', status, error, nowISO(ctx), jobId);
 }
 
 function toDTO(row: JobRow): JobDTO {

@@ -18,6 +18,8 @@ export interface AppContext {
   sms: SmsProvider;
   llm: SILanguageModel | null;
   now: () => Date;
+  /** Keeps work running after the response is sent (Vercel `waitUntil`; plain fire-and-forget locally). */
+  background: (work: Promise<unknown>) => void;
   log: (level: 'info' | 'warn' | 'error', msg: string, extra?: Record<string, unknown>) => void;
 }
 

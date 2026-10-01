@@ -33,7 +33,7 @@ export default function Splash() {
         <FadeIn style={{ alignItems: 'center' }}>
           <Logo />
           <T v="title" color="#FFFFFF" style={{ marginTop: 20 }} accessibilityRole="header">
-            MoneyMate
+            Finance Buddy
           </T>
           <T v="body" color="#C7C7CC" style={{ marginTop: 6 }}>
             Understand. Plan. Grow.

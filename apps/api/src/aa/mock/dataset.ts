@@ -1,4 +1,4 @@
-import { addDaysISO, daysInMonth, istParts, istToISO, monthName, type AccountType, type PaymentMode } from '@moneymate/core';
+import { addDaysISO, daysInMonth, istParts, istToISO, monthName, type AccountType, type PaymentMode } from '@finance-buddy/core';
 import type { DepositPayload, EPFPayload, MutualFundPayload, TermDepositPayload } from '../provider';
 import { between, hashSeed, intBetween, pick, rngFor } from './prng';
 

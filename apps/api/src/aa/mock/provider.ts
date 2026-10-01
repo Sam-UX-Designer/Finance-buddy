@@ -1,4 +1,4 @@
-import type { ConsentStatus } from '@moneymate/core';
+import type { ConsentStatus } from '@finance-buddy/core';
 import { newId } from '../../lib/crypto';
 import type {
   AANotification,
@@ -11,33 +11,35 @@ import type {
 } from '../provider';
 import { depositStatements, epfStatement, fixedDepositStatement, mutualFundStatement, navAt, personaAccounts } from './dataset';
 
-interface MockConsent {
-  input: CreateConsentInput;
-  status: ConsentStatus;
-}
-
-interface MockSession {
-  providerConsentId: string;
-  from: string;
-  to: string;
-  readyAt: number;
+/** Where the sandbox AA keeps its own consent records (a real AA stores these on its side). */
+export interface SandboxConsentStore {
+  get(providerConsentId: string): Promise<{ input: CreateConsentInput; status: ConsentStatus } | null>;
+  put(providerConsentId: string, input: CreateConsentInput, status: ConsentStatus): Promise<void>;
+  remove(providerConsentId: string): Promise<void>;
 }
 
 export interface MockAAOptions {
   latencyMs: number;
   failFips: string[];
+  store: SandboxConsentStore;
   now?: () => Date;
+}
+
+interface SessionToken {
+  c: string; // provider consent id
+  f: string; // from
+  t: string; // to
+  r: number; // ready at (ms)
 }
 
 /**
  * Sandbox stand-in for an AA partner. Behaves like the real lifecycle:
  * consent PENDING → user approves/rejects on the "AA page" → notification → data session → FI data.
- * Approval happens through `approve`/`reject`, which the sandbox approval screen calls.
+ * Stateless across server instances: consent state is in the store, and a data session id
+ * encodes everything needed to serve it.
  */
 export class MockAAProvider implements AAProvider, MarketDataProvider {
   readonly name = 'mock';
-  private consents = new Map<string, MockConsent>();
-  private sessions = new Map<string, MockSession>();
   private handlers: ((n: AANotification) => Promise<void>)[] = [];
 
   constructor(private opts: MockAAOptions) {}
@@ -53,24 +55,15 @@ export class MockAAProvider implements AAProvider, MarketDataProvider {
 
   async createConsent(input: CreateConsentInput): Promise<{ providerConsentId: string; approvalUrl: string }> {
     const providerConsentId = newId('mockconsent');
-    this.consents.set(providerConsentId, { input, status: 'PENDING' });
+    await this.opts.store.put(providerConsentId, input, 'PENDING');
     return { providerConsentId, approvalUrl: `sandbox:${providerConsentId}` };
   }
 
   /** Details shown on the sandbox approval screen. */
-  describeConsent(providerConsentId: string): CreateConsentInput & { status: ConsentStatus } {
-    const c = this.consents.get(providerConsentId);
+  async describeConsent(providerConsentId: string): Promise<CreateConsentInput & { status: ConsentStatus }> {
+    const c = await this.opts.store.get(providerConsentId);
     if (!c) throw new Error('Unknown consent');
     return { ...c.input, status: c.status };
-  }
-
-  hasConsent(providerConsentId: string): boolean {
-    return this.consents.has(providerConsentId);
-  }
-
-  /** Restores consent state after a server restart (the real AA keeps this state on its side). */
-  restoreConsent(providerConsentId: string, input: CreateConsentInput, status: ConsentStatus): void {
-    if (!this.consents.has(providerConsentId)) this.consents.set(providerConsentId, { input, status });
   }
 
   async approve(providerConsentId: string): Promise<void> {
@@ -82,38 +75,40 @@ export class MockAAProvider implements AAProvider, MarketDataProvider {
   }
 
   private async transition(providerConsentId: string, status: ConsentStatus): Promise<void> {
-    const c = this.consents.get(providerConsentId);
+    const c = await this.opts.store.get(providerConsentId);
     if (!c) throw new Error('Unknown consent');
-    if (c.status !== 'PENDING') throw new Error(`Consent is already ${c.status}`);
-    c.status = status;
+    if (c.status !== 'PENDING') throw new Error(`Consent is already ${c.status.toLowerCase()}`);
+    await this.opts.store.put(providerConsentId, c.input, status);
     await this.emit({ type: 'CONSENT_STATUS', providerConsentId, status });
   }
 
   async getConsentStatus(providerConsentId: string): Promise<ConsentStatus> {
-    return this.consents.get(providerConsentId)?.status ?? 'FAILED';
+    return (await this.opts.store.get(providerConsentId))?.status ?? 'FAILED';
   }
 
   async revokeConsent(providerConsentId: string): Promise<void> {
-    const c = this.consents.get(providerConsentId);
-    if (c) c.status = 'REVOKED';
+    await this.opts.store.remove(providerConsentId);
   }
 
   async createDataSession({ providerConsentId, from, to }: { providerConsentId: string; from: string; to: string }): Promise<{ providerSessionId: string }> {
-    const c = this.consents.get(providerConsentId);
+    const c = await this.opts.store.get(providerConsentId);
     if (!c || c.status !== 'ACTIVE') throw new Error('Consent is not active');
-    const providerSessionId = newId('mocksession');
-    this.sessions.set(providerSessionId, { providerConsentId, from, to, readyAt: Date.now() + this.opts.latencyMs });
-    return { providerSessionId };
+    const token: SessionToken = { c: providerConsentId, f: from, t: to, r: Date.now() + this.opts.latencyMs };
+    return { providerSessionId: `mocksession.${Buffer.from(JSON.stringify(token)).toString('base64url')}` };
   }
 
   async fetchData(providerSessionId: string): Promise<DataSessionResult> {
-    const s = this.sessions.get(providerSessionId);
-    if (!s) return { status: 'EXPIRED', accounts: [], failures: [] };
-    if (Date.now() < s.readyAt) return { status: 'PENDING', accounts: [], failures: [] };
-    const consent = this.consents.get(s.providerConsentId)!;
-    if (consent.status !== 'ACTIVE') return { status: 'FAILED', accounts: [], failures: [] };
+    let s: SessionToken;
+    try {
+      s = JSON.parse(Buffer.from(providerSessionId.split('.')[1] ?? '', 'base64url').toString()) as SessionToken;
+    } catch {
+      return { status: 'EXPIRED', accounts: [], failures: [] };
+    }
+    if (Date.now() < s.r) return { status: 'PENDING', accounts: [], failures: [] };
+    const consent = await this.opts.store.get(s.c);
+    if (!consent || consent.status !== 'ACTIVE') return { status: 'FAILED', accounts: [], failures: [] };
     const phone = consent.input.phone;
-    const untilISO = minISO(s.to, this.now().toISOString());
+    const untilISO = minISO(s.t, this.now().toISOString());
     const persona = personaAccounts(phone);
     const accounts: FIPayload[] = [];
     const failures: DataSessionResult['failures'] = [];
@@ -133,7 +128,7 @@ export class MockAAProvider implements AAProvider, MarketDataProvider {
         const stmt = deposits.get(p.fipId as 'hdfc')!;
         accounts.push({
           ...stmt,
-          transactions: stmt.transactions.filter((t) => Date.parse(t.transactionTimestamp) >= Date.parse(s.from) && Date.parse(t.transactionTimestamp) <= Date.parse(untilISO)),
+          transactions: stmt.transactions.filter((t) => Date.parse(t.transactionTimestamp) >= Date.parse(s.f) && Date.parse(t.transactionTimestamp) <= Date.parse(untilISO)),
         });
       } else if (p.type === 'MUTUAL_FUNDS') accounts.push(mutualFundStatement(phone, untilISO));
       else if (p.type === 'TERM_DEPOSIT') accounts.push(fixedDepositStatement(phone, untilISO));

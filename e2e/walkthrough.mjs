@@ -49,7 +49,7 @@ const step = async (label, fn) => {
 try {
   await step('splash', async () => {
     await page.goto(WEB);
-    await text('MoneyMate').waitFor();
+    await text('Finance Buddy').waitFor();
     await page.waitForTimeout(350);
     await shot('splash');
   });

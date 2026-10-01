@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { CalendarDays, Landmark, RefreshCw, ShieldCheck, ReceiptText, Wallet, ChartLine, PiggyBank } from 'lucide-react-native';
-import type { ConsentPreviewDTO } from '@moneymate/core';
+import type { ConsentPreviewDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { onboardingApi } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -47,7 +47,7 @@ export default function ConsentScreen() {
         router.push({ pathname: '/onboarding/approve', params: { pid: url.slice(8), cid: consent.id } });
       } else if (url) {
         // Production: the AA partner's hosted consent page; the webhook updates status server-side.
-        await WebBrowser.openAuthSessionAsync(url, 'moneymate://consent-complete');
+        await WebBrowser.openAuthSessionAsync(url, 'financebuddy://consent-complete');
         const latest = await onboardingApi.consent(consent.id);
         if (latest.status === 'ACTIVE') router.replace('/onboarding/sync');
         else if (latest.status === 'REJECTED') router.replace({ pathname: '/onboarding/accounts', params: { rejected: '1' } });
@@ -136,7 +136,7 @@ export default function ConsentScreen() {
             <View style={{ flex: 1 }}>
               <T v="smallMedium">{`Powered by ${preview.provider}`}</T>
               <T v="caption" tone="secondary">
-                RBI-regulated. MoneyMate never sees your bank password.
+                RBI-regulated. Finance Buddy never sees your bank password.
               </T>
             </View>
           </Row>

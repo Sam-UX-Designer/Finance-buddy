@@ -1,8 +1,8 @@
 {
-  "name": "moneymate",
+  "name": "finance-buddy",
   "private": true,
   "version": "0.1.0",
-  "description": "MoneyMate — personal financial intelligence powered by SI, connected through Account Aggregator.",
+  "description": "Finance Buddy — personal financial intelligence powered by SI, connected through Account Aggregator.",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -11,11 +11,11 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,app -c blue,magenta \"npm run dev -w @moneymate/api\" \"npm run start -w @moneymate/mobile\"",
-    "dev:api": "npm run dev -w @moneymate/api",
-    "dev:web": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @moneymate/api\" \"npm run web -w @moneymate/mobile\"",
-    "test": "npm run test -w @moneymate/core && npm run test -w @moneymate/api",
-    "typecheck": "npm run typecheck -w @moneymate/core && npm run typecheck -w @moneymate/api && npm run typecheck -w @moneymate/mobile"
+    "dev": "concurrently -k -n api,app -c blue,magenta \"npm run dev -w @finance-buddy/api\" \"npm run start -w @finance-buddy/mobile\"",
+    "dev:api": "npm run dev -w @finance-buddy/api",
+    "dev:web": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @finance-buddy/api\" \"npm run web -w @finance-buddy/mobile\"",
+    "test": "npm run test -w @finance-buddy/core && npm run test -w @finance-buddy/api",
+    "typecheck": "npm run typecheck -w @finance-buddy/core && npm run typecheck -w @finance-buddy/api && npm run typecheck -w @finance-buddy/mobile"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

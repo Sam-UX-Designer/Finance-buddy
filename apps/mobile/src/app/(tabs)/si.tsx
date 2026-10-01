@@ -4,7 +4,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, TextInpu
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { ArrowUp, CircleCheck, CircleAlert, Info, Mic, Sparkles } from 'lucide-react-native';
-import { greetingFor, type BriefItem, type SIMessageDTO } from '@moneymate/core';
+import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useAsk, useSI } from '@/lib/queries';
 import { useSession } from '@/lib/session';

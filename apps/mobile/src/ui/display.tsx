@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, View, type StyleProp, type ViewStyle } from 'react-native';
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
-import { formatINR, type CategoryId, type FipDTO, type Paise, type TxnType } from '@moneymate/core';
+import { formatINR, type CategoryId, type FipDTO, type Paise, type TxnType } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space, type TypeVariant } from '@/theme/tokens';
 import type { Palette } from '@/theme/tokens';

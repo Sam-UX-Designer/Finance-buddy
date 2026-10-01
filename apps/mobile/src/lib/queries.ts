@@ -24,7 +24,7 @@ import type {
   TxnPatchBody,
   UpcomingPayment,
   WealthDTO,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import { api } from './api';
 
 export const keys = {

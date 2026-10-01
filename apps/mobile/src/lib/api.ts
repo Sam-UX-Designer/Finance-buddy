@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import type { ApiError } from '@moneymate/core';
+import type { ApiError } from '@finance-buddy/core';
 
 function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
@@ -53,7 +53,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
       signal: init.signal,
     });
   } catch {
-    throw new ApiRequestError(0, 'NETWORK', "Can't reach MoneyMate. Check your connection and try again.");
+    throw new ApiRequestError(0, 'NETWORK', "Can't reach Finance Buddy. Check your connection and try again.");
   }
   const text = await res.text();
   const json = text ? (JSON.parse(text) as unknown) : null;

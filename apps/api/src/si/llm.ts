@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { checkGrounding, runTool, TOOLS, type ToolEnv, type ToolResult } from '@moneymate/core';
+import { checkGrounding, runTool, TOOLS, type ToolEnv, type ToolResult } from '@finance-buddy/core';
 
 export interface LLMAnswer {
   text: string;
@@ -12,7 +12,7 @@ export interface SILanguageModel {
   answer(question: string, history: { role: 'user' | 'assistant'; text: string }[], env: ToolEnv): Promise<LLMAnswer | null>;
 }
 
-const SYSTEM = `You are SI, the financial intelligence inside MoneyMate, a personal finance app in India.
+const SYSTEM = `You are SI, the financial intelligence inside Finance Buddy, a personal finance app in India.
 You explain the user's own finances in plain, friendly language.
 
 Rules you must follow:

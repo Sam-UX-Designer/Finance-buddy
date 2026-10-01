@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { MeDTO, SessionResponse } from '@moneymate/core';
+import type { MeDTO, SessionResponse } from '@finance-buddy/core';
 import { api, ApiRequestError, errorMessage, setApiToken, setUnauthorizedHandler } from './api';
 import { storage } from './storage';
 
-const TOKEN_KEY = 'moneymate.session';
+const TOKEN_KEY = 'financebuddy.session';
 
 interface SessionValue {
   ready: boolean;

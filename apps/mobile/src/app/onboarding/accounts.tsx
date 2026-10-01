@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Check } from 'lucide-react-native';
-import type { ConsentDTO, DiscoveredAccountDTO } from '@moneymate/core';
+import type { ConsentDTO, DiscoveredAccountDTO } from '@finance-buddy/core';
 import { onboardingApi } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';

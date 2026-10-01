@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Plus, RefreshCw } from 'lucide-react-native';
-import { formatDate, formatINR, formatTime, type AccountDTO, type ConsentDTO } from '@moneymate/core';
+import { formatDate, formatINR, formatTime, type AccountDTO, type ConsentDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { onboardingApi, useAccounts, useInvalidateFinance, useSync } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -93,7 +93,7 @@ export default function AccountsScreen() {
           <View style={{ marginTop: space.xxl }}>
             <SectionTitle>Consents</SectionTitle>
             <T v="small" tone="secondary" style={{ marginBottom: space.md }}>
-              Data is shared only through your Account Aggregator, with your approval. Revoking stops sharing and removes that data from MoneyMate.
+              Data is shared only through your Account Aggregator, with your approval. Revoking stops sharing and removes that data from Finance Buddy.
             </T>
             {consents.length === 0 ? (
               <T v="small" tone="tertiary">
@@ -155,7 +155,7 @@ export default function AccountsScreen() {
         }
       >
         <T v="body" tone="secondary">
-          {`MoneyMate will stop receiving data from ${revoking?.accounts.map((a) => `${a.fip.shortName} ••${a.maskedNumber.slice(-4)}`).join(', ')} and delete the transactions and balances it fetched.`}
+          {`Finance Buddy will stop receiving data from ${revoking?.accounts.map((a) => `${a.fip.shortName} ••${a.maskedNumber.slice(-4)}`).join(', ')} and delete the transactions and balances it fetched.`}
         </T>
         <T v="small" tone="tertiary" style={{ marginTop: space.md }}>
           You can reconnect any time.

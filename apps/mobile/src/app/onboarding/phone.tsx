@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Lock, Shield, ShieldCheck } from 'lucide-react-native';
-import type { OtpRequestResponse } from '@moneymate/core';
+import type { OtpRequestResponse } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';

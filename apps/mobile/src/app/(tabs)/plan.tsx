@@ -13,7 +13,7 @@ import {
   type BudgetDTO,
   type CategoryId,
   type GoalDTO,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useBudgets, useForecast, usePlan, useSetBudget } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';

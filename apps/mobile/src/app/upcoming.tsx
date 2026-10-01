@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { category, formatDate, formatINR } from '@moneymate/core';
+import { category, formatDate, formatINR } from '@finance-buddy/core';
 import { useUpcoming } from '@/lib/queries';
 import { space } from '@/theme/tokens';
 import { EmojiAvatar, ListRow } from '@/ui/display';

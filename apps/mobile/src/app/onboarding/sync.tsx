@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
-import type { JobDTO, JobStep } from '@moneymate/core';
+import type { JobDTO, JobStep } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { onboardingApi } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';

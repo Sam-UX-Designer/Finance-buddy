@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
-import type { JobStep } from '@moneymate/core';
+import type { JobStep } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';
 import { Row, T } from '@/ui/primitives';

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { ChevronRight, FlaskConical, Landmark, LogOut, Smartphone, Trash } from 'lucide-react-native';
-import { formatDate, type ThemePreference } from '@moneymate/core';
+import { formatDate, type ThemePreference } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
 import { useHealth, useSessions } from '@/lib/queries';
 import { useSession } from '@/lib/session';
@@ -137,7 +137,7 @@ export default function SettingsScreen() {
           router.replace('/onboarding/phone');
         }} />
         <Button label="Delete my account and data" icon={Trash} variant="danger" onPress={() => setDeleting(true)} />
-        <T v="caption" tone="tertiary" align="center">{`MoneyMate ${Constants.expoConfig?.version ?? ''}`}</T>
+        <T v="caption" tone="tertiary" align="center">{`Finance Buddy ${Constants.expoConfig?.version ?? ''}`}</T>
       </View>
 
       <Sheet

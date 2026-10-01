@@ -1,4 +1,4 @@
-# MoneyMate — Build Plan
+# Finance Buddy — Build Plan
 
 Sources of truth:
 - **Visual:** the approved 15-screen UI reference (onboarding → Home → Activity → SI → Wealth → Plan).
@@ -72,7 +72,7 @@ Later (needs credentials / business onboarding, not code-blocked):
 These are small interpretations of the mockup — easy to change:
 
 1. **"Send" button (Home)** opens the user's own UPI app with a pre-filled UPI link.
-   MoneyMate never moves money itself.
+   Finance Buddy never moves money itself.
 2. **Header icons:** Home = notifications + profile/settings, Activity = filters,
    Wealth = "how net worth is calculated", Plan = forecast assumptions
    (Plan's search icon in the mockup had no defined purpose).

@@ -33,7 +33,7 @@ import {
   type TxnListResponse,
   type UpcomingPayment,
   type WealthDTO,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import type { AppContext } from '../context';
 import { fip } from '../aa/fips';
 import { listAccounts, type AccountRow } from '../repo/accounts';
@@ -41,8 +41,8 @@ import { latestJob } from '../repo/jobs';
 import { unreadCount } from '../repo/misc';
 import { financialState } from './finance';
 
-export function homeDTO(ctx: AppContext, userId: string): HomeDTO {
-  const state = financialState(ctx, userId);
+export async function homeDTO(ctx: AppContext, userId: string): Promise<HomeDTO> {
+  const state = await financialState(ctx, userId);
   const fctx = forecastContext(state);
   const deposits = depositAccounts(state.accounts);
   const month = monthSummary(state);
@@ -50,8 +50,8 @@ export function homeDTO(ctx: AppContext, userId: string): HomeDTO {
   const hasWealth = state.accounts.length > 0;
   const nw = hasWealth ? netWorth(state) : null;
   const change = hasWealth ? netWorthChangeThisYear(state) : null;
-  const job = latestJob(ctx, userId, 'SYNC');
-  const rows = listAccounts(ctx, userId).filter((a) => a.linked === 1);
+  const job = await latestJob(ctx, userId, 'SYNC');
+  const rows = (await listAccounts(ctx, userId)).filter((a) => a.linked === 1);
   const lastSyncedAt = rows.reduce<string | null>((m, a) => (a.last_synced_at && (!m || a.last_synced_at > m) ? a.last_synced_at : m), null);
   let health: HomeDTO['sync']['health'] = 'OK';
   let message: string | null = null;
@@ -89,12 +89,12 @@ export function homeDTO(ctx: AppContext, userId: string): HomeDTO {
     upcoming: { count: upcoming.length, total: upcoming.reduce((s, u) => s + u.amount, 0), days: 30, items: upcoming.slice(0, 5) },
     wealth: nw && change ? { netWorth: nw.netWorth, change: change.change, changePct: change.changePct, sinceDate: change.sinceDate } : null,
     sync: { health, lastSyncedAt, message },
-    unreadNotifications: unreadCount(ctx, userId),
+    unreadNotifications: await unreadCount(ctx, userId),
   };
 }
 
-export function upcomingDTO(ctx: AppContext, userId: string, days = 30): { days: number; total: number; items: UpcomingPayment[] } {
-  const state = financialState(ctx, userId);
+export async function upcomingDTO(ctx: AppContext, userId: string, days = 30): Promise<{ days: number; total: number; items: UpcomingPayment[] }> {
+  const state = await financialState(ctx, userId);
   const items = upcomingPayments(forecastContext(state).recurring, state.now, days);
   return { days, total: items.reduce((s, u) => s + u.amount, 0), items };
 }
@@ -151,9 +151,9 @@ export interface ActivityQuery {
   limit?: number;
 }
 
-export function activityDTO(ctx: AppContext, userId: string, query: ActivityQuery): TxnListResponse {
-  const state = financialState(ctx, userId);
-  const accounts = new Map(listAccounts(ctx, userId).map((a) => [a.id, a]));
+export async function activityDTO(ctx: AppContext, userId: string, query: ActivityQuery): Promise<TxnListResponse> {
+  const state = await financialState(ctx, userId);
+  const accounts = new Map((await listAccounts(ctx, userId)).map((a) => [a.id, a]));
   let txns = [...state.txns].sort((a, b) => Date.parse(b.postedAt) - Date.parse(a.postedAt) || b.id.localeCompare(a.id));
   if (query.filter && query.filter !== 'all') {
     const types = FILTER_TYPES[query.filter];
@@ -182,8 +182,8 @@ export function activityDTO(ctx: AppContext, userId: string, query: ActivityQuer
 }
 
 // ── Wealth ───────────────────────────────────────────────────────────
-export function wealthDTO(ctx: AppContext, userId: string): WealthDTO {
-  const state = financialState(ctx, userId);
+export async function wealthDTO(ctx: AppContext, userId: string): Promise<WealthDTO> {
+  const state = await financialState(ctx, userId);
   const nw = netWorth(state);
   const holdings: HoldingDTO[] = [];
   for (const h of state.holdings.mutualFunds) {
@@ -240,8 +240,8 @@ export function wealthDTO(ctx: AppContext, userId: string): WealthDTO {
 }
 
 // ── Plan ─────────────────────────────────────────────────────────────
-export function planDTO(ctx: AppContext, userId: string): PlanDTO {
-  const state = financialState(ctx, userId);
+export async function planDTO(ctx: AppContext, userId: string): Promise<PlanDTO> {
+  const state = await financialState(ctx, userId);
   const fctx = forecastContext(state);
   return {
     goals: state.goals.map((g) => ({ ...g, projection: projectGoal(g, state.now, fctx.assumptions.goalReturnPct) })),
@@ -250,8 +250,8 @@ export function planDTO(ctx: AppContext, userId: string): PlanDTO {
   };
 }
 
-export function forecastDTO(ctx: AppContext, userId: string): ForecastDTO {
-  const state = financialState(ctx, userId);
+export async function forecastDTO(ctx: AppContext, userId: string): Promise<ForecastDTO> {
+  const state = await financialState(ctx, userId);
   const fctx = forecastContext(state);
   const next = nextSalaryDate(fctx);
   return {
@@ -263,8 +263,8 @@ export function forecastDTO(ctx: AppContext, userId: string): ForecastDTO {
   };
 }
 
-export function budgetsDTO(ctx: AppContext, userId: string): BudgetsResponse {
-  const state = financialState(ctx, userId);
+export async function budgetsDTO(ctx: AppContext, userId: string): Promise<BudgetsResponse> {
+  const state = await financialState(ctx, userId);
   const month = monthSummary(state);
   const statuses = budgetStatuses(state.budgets, month, state.now);
   const budgeted = new Set(state.budgets.map((b) => b.categoryId));

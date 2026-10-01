@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "MoneyMate",
-    "slug": "moneymate",
+    "name": "Finance Buddy",
+    "slug": "finance-buddy",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "moneymate",
+    "scheme": "financebuddy",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ai.workfast.moneymate",
+      "bundleIdentifier": "ai.workfast.financebuddy",
       "config": { "usesNonExemptEncryption": false }
     },
     "android": {
-      "package": "ai.workfast.moneymate",
+      "package": "ai.workfast.financebuddy",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -25,8 +25,8 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "MoneyMate",
-      "shortName": "MoneyMate",
+      "name": "Finance Buddy",
+      "shortName": "Finance Buddy",
       "themeColor": "#000000",
       "backgroundColor": "#000000"
     },

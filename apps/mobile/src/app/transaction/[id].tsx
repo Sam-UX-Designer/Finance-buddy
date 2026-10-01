@@ -14,7 +14,7 @@ import {
   type CategoryId,
   type TxnDTO,
   type TxnType,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { usePatchTxn, useSplitTxn, useTxn } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -24,7 +24,7 @@ import { EmojiAvatar, KeyValue, TxnAmount } from '@/ui/display';
 import { BackHeader, Banner, ErrorState, FadeIn, LoadingState, Screen, Sheet } from '@/ui/layout';
 import { Card, Divider, Press, Row, T } from '@/ui/primitives';
 
-const SOURCE_LABEL = { USER: 'Set by you', RULE: 'Auto-categorised', ENGINE: 'Detected by MoneyMate' } as const;
+const SOURCE_LABEL = { USER: 'Set by you', RULE: 'Auto-categorised', ENGINE: 'Detected by Finance Buddy' } as const;
 
 /** Transaction detail (Blueprint §9): source account, merchant, category, type, recurring, confidence. */
 export default function TransactionScreen() {

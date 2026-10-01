@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, TextInput, View } from 'react-native';
 import { Check } from 'lucide-react-native';
-import type { OtpRequestResponse, SessionResponse } from '@moneymate/core';
+import type { OtpRequestResponse, SessionResponse } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
 import { routeForState, useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';

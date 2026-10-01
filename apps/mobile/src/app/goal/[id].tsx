@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Minus, Plus, Trash } from 'lucide-react-native';
-import { formatDate, formatINR, projectGoal } from '@moneymate/core';
+import { formatDate, formatINR, projectGoal } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useDeleteGoal, useGoal, usePlan, useSaveGoal } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';

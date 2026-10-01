@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import { CreditCard, Landmark, PiggyBank, ReceiptText } from 'lucide-react-native';
-import type { JobDTO } from '@moneymate/core';
+import type { JobDTO } from '@finance-buddy/core';
 import { onboardingApi } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';

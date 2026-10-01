@@ -10,7 +10,7 @@ import {
   type ActivityFilter,
   type CategoryId,
   type TxnType,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import type { AppContext } from './context';
 import { badRequest, HttpError, notFound } from './lib/errors';
 import { hmacHex, safeEqual } from './lib/crypto';
@@ -31,7 +31,7 @@ import {
 } from './aa/service';
 import { fip } from './aa/fips';
 import { listAccounts, toAccountDTO, toEngineAccount } from './repo/accounts';
-import { getConsent } from './repo/consents';
+import { listConsents } from './repo/consents';
 import { getJob } from './repo/jobs';
 import {
   ASSUMPTION_KEYS,
@@ -52,7 +52,7 @@ import { audit, bumpDataVersion, getUser, toMeDTO, updateProfile } from './repo/
 import { financialState, invalidate, recompute } from './services/finance';
 import { activityDTO, budgetsDTO, forecastDTO, homeDTO, planDTO, toTxnDTO, upcomingDTO, wealthDTO } from './services/views';
 import { ask, siHome } from './si/service';
-import { forecastContext, projectGoal, reconcile } from '@moneymate/core';
+import { forecastContext, projectGoal, reconcile } from '@finance-buddy/core';
 
 type Env = { Variables: { auth: AuthedSession } };
 
@@ -71,8 +71,13 @@ async function parse<T extends z.ZodType>(c: Context, schema: T): Promise<z.infe
   return r.data;
 }
 
-export function createApp(ctx: AppContext): Hono<Env> {
-  const app = new Hono<Env>();
+export interface AppOptions {
+  /** Mount path, e.g. '/api' when the API shares a domain with the web app. */
+  basePath?: string;
+}
+
+export function createApp(ctx: AppContext, opts: AppOptions = {}): Hono<Env> {
+  const app = opts.basePath ? new Hono<Env>().basePath(opts.basePath) : new Hono<Env>();
   ctx.aa.onNotification((n) => handleNotification(ctx, n));
 
   app.use('*', secureHeaders());
@@ -119,67 +124,69 @@ export function createApp(ctx: AppContext): Hono<Env> {
   app.use('/v1/*', async (c, next) => {
     const header = c.req.header('authorization');
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-    c.set('auth', authenticate(ctx, token));
+    c.set('auth', await authenticate(ctx, token));
     await next();
   });
   const uid = (c: Context<Env>) => c.get('auth').user.id;
 
-  app.get('/v1/me', (c) => c.json(toMeDTO(ctx, getUser(ctx, uid(c))!)));
+  app.get('/v1/me', async (c) => c.json(toMeDTO(ctx, (await getUser(ctx, uid(c)))!)));
   app.patch('/v1/me', async (c) => {
     const body = await parse(c, z.object({ name: z.string().min(1).max(60).nullable().optional(), themePreference: z.enum(['system', 'light', 'dark']).optional() }));
-    updateProfile(ctx, uid(c), body);
-    bumpDataVersion(ctx, uid(c));
-    return c.json(toMeDTO(ctx, getUser(ctx, uid(c))!));
+    await updateProfile(ctx, uid(c), body);
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(toMeDTO(ctx, (await getUser(ctx, uid(c)))!));
   });
-  app.post('/v1/auth/logout', (c) => {
-    revokeSession(ctx, uid(c), c.get('auth').sessionId);
+  app.post('/v1/auth/logout', async (c) => {
+    await revokeSession(ctx, uid(c), c.get('auth').sessionId);
     return c.json({ ok: true });
   });
-  app.get('/v1/me/sessions', (c) => c.json({ sessions: listSessions(ctx, uid(c), c.get('auth').sessionId) }));
-  app.delete('/v1/me/sessions/:id', (c) => {
-    if (!revokeSession(ctx, uid(c), c.req.param('id'))) throw notFound('Session not found.');
-    audit(ctx, uid(c), 'SESSION_REVOKED', { sessionId: c.req.param('id') });
+  app.get('/v1/me/sessions', async (c) => c.json({ sessions: await listSessions(ctx, uid(c), c.get('auth').sessionId) }));
+  app.delete('/v1/me/sessions/:id', async (c) => {
+    if (!(await revokeSession(ctx, uid(c), c.req.param('id')))) throw notFound('Session not found.');
+    await audit(ctx, uid(c), 'SESSION_REVOKED', { sessionId: c.req.param('id') });
     return c.json({ ok: true });
   });
   /** Deletes the account and all financial data after revoking every consent (Blueprint §23). */
   app.delete('/v1/me', async (c) => {
     const userId = uid(c);
-    for (const consent of listConsentDTOs(ctx, userId)) {
+    for (const consent of await listConsentDTOs(ctx, userId)) {
       if (consent.status === 'ACTIVE' || consent.status === 'PENDING') await revokeConsent(ctx, userId, consent.id);
     }
-    audit(ctx, userId, 'ACCOUNT_DELETED');
-    ctx.db.run('DELETE FROM users WHERE id = ?', userId);
+    // The sandbox AA keeps its own consent records; clear them too.
+    if (ctx.mockAA) for (const consent of await listConsents(ctx, userId)) await ctx.mockAA.revokeConsent(consent.provider_consent_id);
+    await audit(ctx, userId, 'ACCOUNT_DELETED');
+    await ctx.db.run('DELETE FROM users WHERE id = ?', userId);
     invalidate(userId);
     return c.json({ ok: true });
   });
 
   // ── Onboarding / AA ────────────────────────────────────────────────
-  app.post('/v1/aa/discovery', (c) => c.json({ job: startDiscovery(ctx, uid(c)) }));
-  app.get('/v1/aa/discovery', (c) => c.json(discoveryState(ctx, uid(c))));
+  app.post('/v1/aa/discovery', async (c) => c.json({ job: await startDiscovery(ctx, uid(c)) }));
+  app.get('/v1/aa/discovery', async (c) => c.json(await discoveryState(ctx, uid(c))));
   app.post('/v1/aa/consent-preview', async (c) => {
     const body = await parse(c, z.object({ accountIds: z.array(z.string()).min(1).max(20) }));
-    return c.json(consentPreview(ctx, uid(c), body.accountIds));
+    return c.json(await consentPreview(ctx, uid(c), body.accountIds));
   });
   app.post('/v1/aa/consents', async (c) => {
     const body = await parse(c, z.object({ accountIds: z.array(z.string()).min(1).max(20) }));
     return c.json(await createConsent(ctx, uid(c), body.accountIds));
   });
-  app.get('/v1/aa/consents', (c) => c.json({ consents: listConsentDTOs(ctx, uid(c)) }));
-  app.get('/v1/aa/consents/:id', (c) => c.json(consentDTO(ctx, uid(c), c.req.param('id'))));
+  app.get('/v1/aa/consents', async (c) => c.json({ consents: await listConsentDTOs(ctx, uid(c)) }));
+  app.get('/v1/aa/consents/:id', async (c) => c.json(await consentDTO(ctx, uid(c), c.req.param('id'))));
   app.post('/v1/aa/consents/:id/revoke', async (c) => c.json(await revokeConsent(ctx, uid(c), c.req.param('id'))));
-  app.get('/v1/jobs/:id', (c) => {
-    const job = getJob(ctx, uid(c), c.req.param('id'));
+  app.get('/v1/jobs/:id', async (c) => {
+    const job = await getJob(ctx, uid(c), c.req.param('id'));
     if (!job) throw notFound('Job not found.');
     return c.json(job);
   });
-  app.post('/v1/sync', (c) => c.json(startSync(ctx, uid(c))));
-  app.get('/v1/sync/latest', (c) => c.json({ job: syncJob(ctx, uid(c)) ?? null }));
+  app.post('/v1/sync', async (c) => c.json(await startSync(ctx, uid(c))));
+  app.get('/v1/sync/latest', async (c) => c.json({ job: (await syncJob(ctx, uid(c))) ?? null }));
 
   // Sandbox approval (stands in for the AA partner's hosted consent page).
-  app.get('/v1/sandbox/consents/:providerConsentId', (c) => {
+  app.get('/v1/sandbox/consents/:providerConsentId', async (c) => {
     if (!ctx.mockAA) throw notFound();
-    const consent = consentForSandbox(ctx, uid(c), c.req.param('providerConsentId'));
-    const d = ctx.mockAA.describeConsent(consent.provider_consent_id);
+    const consent = await consentForSandbox(ctx, uid(c), c.req.param('providerConsentId'));
+    const d = await ctx.mockAA.describeConsent(consent.provider_consent_id);
     return c.json({
       consentId: consent.id,
       status: d.status,
@@ -192,48 +199,49 @@ export function createApp(ctx: AppContext): Hono<Env> {
   for (const action of ['approve', 'reject'] as const) {
     app.post(`/v1/sandbox/consents/:providerConsentId/${action}`, async (c) => {
       if (!ctx.mockAA) throw notFound();
-      const consent = consentForSandbox(ctx, uid(c), c.req.param('providerConsentId'));
+      const consent = await consentForSandbox(ctx, uid(c), c.req.param('providerConsentId'));
       try {
         if (action === 'approve') await ctx.mockAA.approve(consent.provider_consent_id);
         else await ctx.mockAA.reject(consent.provider_consent_id);
       } catch (e) {
         throw badRequest((e as Error).message, 'CONSENT_STATE');
       }
-      return c.json(consentDTO(ctx, uid(c), consent.id));
+      return c.json(await consentDTO(ctx, uid(c), consent.id));
     });
   }
 
   // ── Accounts ───────────────────────────────────────────────────────
-  app.get('/v1/accounts', (c) => {
+  app.get('/v1/accounts', async (c) => {
     const userId = uid(c);
     const order = { SAVINGS: 0, CURRENT: 0, TERM_DEPOSIT: 1, MUTUAL_FUNDS: 2, EPF: 3 } as const;
-    const rows = listAccounts(ctx, userId)
+    const rows = (await listAccounts(ctx, userId))
       .filter((a) => a.linked === 1 || a.consent_id)
       .sort((a, b) => order[a.type] - order[b.type]);
-    const state = financialState(ctx, userId);
+    const state = await financialState(ctx, userId);
     const txns = state.txns;
+    const consents = new Map((await listConsents(ctx, userId)).map((x) => [x.id, x]));
     const accounts = rows.map((r) => {
-      const consent = r.consent_id ? getConsent(ctx, userId, r.consent_id) : undefined;
+      const consent = r.consent_id ? consents.get(r.consent_id) : undefined;
       const rec = r.type === 'SAVINGS' || r.type === 'CURRENT' ? reconcile(toEngineAccount(r), txns) : null;
       return toAccountDTO(r, consent?.status ?? null, rec ? { status: rec.status, difference: rec.difference } : null);
     });
     return c.json({
       accounts,
       totalCash: accounts.filter((a) => a.type === 'SAVINGS' || a.type === 'CURRENT').reduce((s, a) => s + a.balance, 0),
-      consents: listConsentDTOs(ctx, userId),
+      consents: await listConsentDTOs(ctx, userId),
     });
   });
 
   // ── Home ───────────────────────────────────────────────────────────
-  app.get('/v1/home', (c) => c.json(homeDTO(ctx, uid(c))));
-  app.get('/v1/upcoming', (c) => c.json(upcomingDTO(ctx, uid(c), Math.min(Number(c.req.query('days') ?? 30) || 30, 90))));
+  app.get('/v1/home', async (c) => c.json(await homeDTO(ctx, uid(c))));
+  app.get('/v1/upcoming', async (c) => c.json(await upcomingDTO(ctx, uid(c), Math.min(Number(c.req.query('days') ?? 30) || 30, 90))));
 
   // ── Activity ───────────────────────────────────────────────────────
-  app.get('/v1/transactions', (c) => {
+  app.get('/v1/transactions', async (c) => {
     const q = c.req.query();
     const filter = (['all', 'expenses', 'income', 'investments', 'loans', 'transfers'] as const).includes(q.filter as ActivityFilter) ? (q.filter as ActivityFilter) : 'all';
     return c.json(
-      activityDTO(ctx, uid(c), {
+      await activityDTO(ctx, uid(c), {
         filter,
         q: q.q,
         categoryId: (CATEGORY_IDS as readonly string[]).includes(q.categoryId ?? '') ? (q.categoryId as CategoryId) : undefined,
@@ -245,13 +253,13 @@ export function createApp(ctx: AppContext): Hono<Env> {
       }),
     );
   });
-  const txnDTO = (userId: string, id: string) => {
-    const t = getTxn(ctx, userId, id);
+  const txnDTO = async (userId: string, id: string) => {
+    const t = await getTxn(ctx, userId, id);
     if (!t) throw notFound('Transaction not found.');
-    const accounts = new Map(listAccounts(ctx, userId).map((a) => [a.id, a]));
+    const accounts = new Map((await listAccounts(ctx, userId)).map((a) => [a.id, a]));
     return toTxnDTO(t, accounts);
   };
-  app.get('/v1/transactions/:id', (c) => c.json(txnDTO(uid(c), c.req.param('id'))));
+  app.get('/v1/transactions/:id', async (c) => c.json(await txnDTO(uid(c), c.req.param('id'))));
   app.patch('/v1/transactions/:id', async (c) => {
     const userId = uid(c);
     const id = c.req.param('id');
@@ -265,21 +273,21 @@ export function createApp(ctx: AppContext): Hono<Env> {
         applyToMerchant: z.boolean().optional(),
       }),
     );
-    const t = getTxn(ctx, userId, id);
+    const t = await getTxn(ctx, userId, id);
     if (!t) throw notFound('Transaction not found.');
     if (body.type && !isTypeAllowed(body.type as TxnType, t.direction)) throw badRequest(`A ${t.direction === 'DEBIT' ? 'payment out' : 'payment in'} can't be marked as ${body.type}.`, 'INVALID_TYPE');
     const categoryId = body.categoryId ?? (body.type ? defaultCategoryForType(body.type as TxnType) ?? undefined : undefined);
-    updateTxnUserFields(ctx, userId, id, { categoryId, type: body.type, note: body.note, isRecurring: body.isRecurring });
-    if (body.isRecurring !== undefined) setMerchantRecurring(ctx, userId, t.merchantKey, body.isRecurring);
-    if (body.applyToMerchant && (categoryId || body.type)) saveUserRule(ctx, userId, t.merchantKey, { categoryId, type: body.type });
-    if (categoryId || body.type || body.isRecurring !== undefined || body.applyToMerchant) recompute(ctx, userId);
-    else bumpDataVersion(ctx, userId);
-    return c.json(txnDTO(userId, id));
+    await updateTxnUserFields(ctx, userId, id, { categoryId, type: body.type, note: body.note, isRecurring: body.isRecurring });
+    if (body.isRecurring !== undefined) await setMerchantRecurring(ctx, userId, t.merchantKey, body.isRecurring);
+    if (body.applyToMerchant && (categoryId || body.type)) await saveUserRule(ctx, userId, t.merchantKey, { categoryId, type: body.type });
+    if (categoryId || body.type || body.isRecurring !== undefined || body.applyToMerchant) await recompute(ctx, userId);
+    else await bumpDataVersion(ctx, userId);
+    return c.json(await txnDTO(userId, id));
   });
   app.put('/v1/transactions/:id/split', async (c) => {
     const userId = uid(c);
     const id = c.req.param('id');
-    const t = getTxn(ctx, userId, id);
+    const t = await getTxn(ctx, userId, id);
     if (!t) throw notFound('Transaction not found.');
     const body = await parse(
       c,
@@ -295,25 +303,25 @@ export function createApp(ctx: AppContext): Hono<Env> {
       if (total !== t.amount) throw badRequest('Split parts must add up to the transaction amount.', 'SPLIT_TOTAL');
       for (const p of body.parts) if (!isTypeAllowed(p.type as TxnType, t.direction)) throw badRequest(`Invalid type ${p.type} for this transaction.`, 'INVALID_TYPE');
     }
-    updateTxnUserFields(ctx, userId, id, { splits: body.parts.length ? body.parts : null });
-    bumpDataVersion(ctx, userId);
-    return c.json(txnDTO(userId, id));
+    await updateTxnUserFields(ctx, userId, id, { splits: body.parts.length ? body.parts : null });
+    await bumpDataVersion(ctx, userId);
+    return c.json(await txnDTO(userId, id));
   });
 
   // ── Wealth ─────────────────────────────────────────────────────────
-  app.get('/v1/wealth', (c) => c.json(wealthDTO(ctx, uid(c))));
+  app.get('/v1/wealth', async (c) => c.json(await wealthDTO(ctx, uid(c))));
 
   // ── Plan ───────────────────────────────────────────────────────────
-  app.get('/v1/plan', (c) => c.json(planDTO(ctx, uid(c))));
-  app.get('/v1/forecast', (c) => c.json(forecastDTO(ctx, uid(c))));
+  app.get('/v1/plan', async (c) => c.json(await planDTO(ctx, uid(c))));
+  app.get('/v1/forecast', async (c) => c.json(await forecastDTO(ctx, uid(c))));
   app.put('/v1/assumptions', async (c) => {
     const body = await parse(c, z.partialRecord(z.enum(ASSUMPTION_KEYS), z.number().min(0).max(1e12).nullable()));
     for (const [k, v] of Object.entries(body)) {
       if ((k.endsWith('Pct') && v != null && v > 50)) throw badRequest(`${k} must be 50% or less.`);
-      setAssumption(ctx, uid(c), k as (typeof ASSUMPTION_KEYS)[number], v == null ? null : k.endsWith('Pct') ? v : Math.round(v));
+      await setAssumption(ctx, uid(c), k as (typeof ASSUMPTION_KEYS)[number], v == null ? null : k.endsWith('Pct') ? v : Math.round(v));
     }
-    bumpDataVersion(ctx, uid(c));
-    return c.json(planDTO(ctx, uid(c)));
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(await planDTO(ctx, uid(c)));
   });
   const goalSchema = z.object({
     name: z.string().trim().min(1).max(40),
@@ -323,67 +331,67 @@ export function createApp(ctx: AppContext): Hono<Env> {
     currentAmount: money,
     monthlyContribution: money,
   });
-  const goalDTO = (userId: string, id: string) => {
-    const g = getGoal(ctx, userId, id);
+  const goalDTO = async (userId: string, id: string) => {
+    const g = await getGoal(ctx, userId, id);
     if (!g) throw notFound('Goal not found.');
-    const state = financialState(ctx, userId);
+    const state = await financialState(ctx, userId);
     return { ...g, projection: projectGoal(g, state.now, forecastContext(state).assumptions.goalReturnPct) };
   };
   app.post('/v1/goals', async (c) => {
     const body = await parse(c, goalSchema);
-    const g = createGoal(ctx, uid(c), body);
-    bumpDataVersion(ctx, uid(c));
-    return c.json(goalDTO(uid(c), g.id), 201);
+    const g = await createGoal(ctx, uid(c), body);
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(await goalDTO(uid(c), g.id), 201);
   });
-  app.get('/v1/goals/:id', (c) => c.json(goalDTO(uid(c), c.req.param('id'))));
+  app.get('/v1/goals/:id', async (c) => c.json(await goalDTO(uid(c), c.req.param('id'))));
   app.patch('/v1/goals/:id', async (c) => {
     const body = await parse(c, goalSchema.partial());
-    if (!getGoal(ctx, uid(c), c.req.param('id'))) throw notFound('Goal not found.');
-    updateGoal(ctx, uid(c), c.req.param('id'), body);
-    bumpDataVersion(ctx, uid(c));
-    return c.json(goalDTO(uid(c), c.req.param('id')));
+    if (!(await getGoal(ctx, uid(c), c.req.param('id')))) throw notFound('Goal not found.');
+    await updateGoal(ctx, uid(c), c.req.param('id'), body);
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(await goalDTO(uid(c), c.req.param('id')));
   });
-  app.delete('/v1/goals/:id', (c) => {
-    if (!deleteGoal(ctx, uid(c), c.req.param('id'))) throw notFound('Goal not found.');
-    bumpDataVersion(ctx, uid(c));
+  app.delete('/v1/goals/:id', async (c) => {
+    if (!(await deleteGoal(ctx, uid(c), c.req.param('id')))) throw notFound('Goal not found.');
+    await bumpDataVersion(ctx, uid(c));
     return c.json({ ok: true });
   });
-  app.get('/v1/budgets', (c) => c.json(budgetsDTO(ctx, uid(c))));
+  app.get('/v1/budgets', async (c) => c.json(await budgetsDTO(ctx, uid(c))));
   app.put('/v1/budgets/:categoryId', async (c) => {
     const categoryId = z.enum(CATEGORY_IDS).safeParse(c.req.param('categoryId'));
     if (!categoryId.success) throw badRequest('Unknown category.');
     const body = await parse(c, z.object({ monthlyLimit: money.min(100) }));
-    upsertBudget(ctx, uid(c), categoryId.data, body.monthlyLimit);
-    bumpDataVersion(ctx, uid(c));
-    return c.json(budgetsDTO(ctx, uid(c)));
+    await upsertBudget(ctx, uid(c), categoryId.data, body.monthlyLimit);
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(await budgetsDTO(ctx, uid(c)));
   });
-  app.delete('/v1/budgets/:categoryId', (c) => {
+  app.delete('/v1/budgets/:categoryId', async (c) => {
     const categoryId = z.enum(CATEGORY_IDS).safeParse(c.req.param('categoryId'));
     if (!categoryId.success) throw badRequest('Unknown category.');
-    deleteBudget(ctx, uid(c), categoryId.data);
-    bumpDataVersion(ctx, uid(c));
-    return c.json(budgetsDTO(ctx, uid(c)));
+    await deleteBudget(ctx, uid(c), categoryId.data);
+    await bumpDataVersion(ctx, uid(c));
+    return c.json(await budgetsDTO(ctx, uid(c)));
   });
 
   // ── SI ─────────────────────────────────────────────────────────────
-  app.get('/v1/si', (c) => c.json(siHome(ctx, uid(c))));
+  app.get('/v1/si', async (c) => c.json(await siHome(ctx, uid(c))));
   app.post('/v1/si/ask', async (c) => {
     const body = await parse(c, z.object({ text: z.string().trim().min(1).max(500), conversationId: z.string().optional() }));
     return c.json(await ask(ctx, uid(c), body.text, body.conversationId));
   });
-  app.post('/v1/si/clear', (c) => {
-    clearConversation(ctx, uid(c), getOrCreateConversation(ctx, uid(c)));
-    return c.json(siHome(ctx, uid(c)));
+  app.post('/v1/si/clear', async (c) => {
+    await clearConversation(ctx, uid(c), await getOrCreateConversation(ctx, uid(c)));
+    return c.json(await siHome(ctx, uid(c)));
   });
 
   // ── Notifications ──────────────────────────────────────────────────
-  app.get('/v1/notifications', (c) => {
-    generateNotifications(ctx, uid(c));
-    return c.json({ notifications: listNotifications(ctx, uid(c)) });
+  app.get('/v1/notifications', async (c) => {
+    await generateNotifications(ctx, uid(c));
+    return c.json({ notifications: await listNotifications(ctx, uid(c)) });
   });
   app.post('/v1/notifications/read', async (c) => {
     const body = await parse(c, z.object({ id: z.string().optional() }));
-    markRead(ctx, uid(c), body.id);
+    await markRead(ctx, uid(c), body.id);
     return c.json({ ok: true });
   });
 

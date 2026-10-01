@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { istToISO, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@moneymate/core';
+import { istToISO, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@finance-buddy/core';
 import { createApp } from '../src/app';
 import { buildContext } from '../src/bootstrap';
 import { loadConfig } from '../src/config';
@@ -8,9 +8,9 @@ import { financialState } from '../src/services/finance';
 
 const NOW = new Date(istToISO(2026, 10, 1, 10, 30));
 
-function setup(env: Record<string, string> = {}) {
+async function setup(env: Record<string, string> = {}) {
   const config = loadConfig({ NODE_ENV: 'test', DATABASE_PATH: ':memory:', MOCK_AA_LATENCY_MS: '0', ...env } as NodeJS.ProcessEnv);
-  const ctx = buildContext(config, { now: () => NOW });
+  const ctx = await buildContext(config, { now: () => NOW });
   const app = createApp(ctx);
   let token = '';
   const call = async (method: string, path: string, body?: unknown) => {
@@ -35,7 +35,7 @@ async function waitFor<T>(fn: () => Promise<T>, done: (v: T) => boolean, timeout
   }
 }
 
-async function signIn(t: ReturnType<typeof setup>, phone = '9876543210') {
+async function signIn(t: Awaited<ReturnType<typeof setup>>, phone = '9876543210') {
   const otp = await t.call('POST', '/v1/auth/otp', { phone });
   expect(otp.status).toBe(200);
   const verified = await t.call('POST', '/v1/auth/verify', { challengeId: otp.json.challengeId, code: '123456', deviceName: 'Test', platform: 'web' });
@@ -44,7 +44,7 @@ async function signIn(t: ReturnType<typeof setup>, phone = '9876543210') {
   return verified.json;
 }
 
-async function onboard(t: ReturnType<typeof setup>, pick?: (a: any) => boolean) {
+async function onboard(t: Awaited<ReturnType<typeof setup>>, pick?: (a: any) => boolean) {
   await t.call('POST', '/v1/aa/discovery');
   const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job && r.json.job.status !== 'RUNNING');
   const ids = disc.json.accounts.filter(pick ?? (() => true)).map((a: any) => a.id);
@@ -57,7 +57,7 @@ async function onboard(t: ReturnType<typeof setup>, pick?: (a: any) => boolean) 
 
 describe('auth', () => {
   it('validates phone numbers and OTP codes, then creates a session', async () => {
-    const t = setup();
+    const t = await setup();
     expect((await t.call('POST', '/v1/auth/otp', { phone: '12345' })).status).toBe(400);
     const otp = await t.call('POST', '/v1/auth/otp', { phone: '+91 98765 43210' });
     expect(otp.json).toMatchObject({ maskedPhone: '+91 98765 43210', devHint: 'Development mode: use 123456' });
@@ -76,7 +76,7 @@ describe('auth', () => {
 
 describe('end-to-end onboarding and product flow', () => {
   it('discovers, consents, syncs and serves reconciled financial views', async () => {
-    const t = setup();
+    const t = await setup();
     await signIn(t);
 
     const { disc, consent, sync } = await onboard(t);
@@ -100,7 +100,7 @@ describe('end-to-end onboarding and product flow', () => {
     expect(home.name).toBe('Sam');
     expect(home.balance.total).toBe(accounts.json.totalCash);
     expect(home.balance.accountCount).toBe(4);
-    const state = financialState(t.ctx, me.json.id);
+    const state = await financialState(t.ctx, me.json.id);
     const month = monthSummary(state);
     expect(home.month).toMatchObject({ income: month.income, spent: month.spent, invested: month.investments });
     expect(home.sync.health).toBe('OK');
@@ -188,7 +188,7 @@ describe('end-to-end onboarding and product flow', () => {
   });
 
   it('handles consent rejection and allows retry without losing setup', async () => {
-    const t = setup();
+    const t = await setup();
     await signIn(t, '9123456780');
     await t.call('POST', '/v1/aa/discovery');
     const disc = await waitFor(() => t.call('GET', '/v1/aa/discovery'), (r) => r.json.job && r.json.job.status !== 'RUNNING');
@@ -206,7 +206,7 @@ describe('end-to-end onboarding and product flow', () => {
   });
 
   it('labels a partial picture when an FIP fails', async () => {
-    const t = setup({ MOCK_AA_FAIL_FIPS: 'sbi' });
+    const t = await setup({ MOCK_AA_FAIL_FIPS: 'sbi' });
     await signIn(t, '9988776655');
     const { sync } = await onboard(t, (a) => a.group === 'BANK');
     expect(sync.json.job.status).toBe('PARTIAL');
@@ -218,7 +218,7 @@ describe('end-to-end onboarding and product flow', () => {
   });
 
   it('rejects unsigned AA webhooks', async () => {
-    const t = setup();
+    const t = await setup();
     const body = JSON.stringify({ type: 'CONSENT_STATUS', providerConsentId: 'x', status: 'ACTIVE' });
     const bad = await t.app.request('/v1/webhooks/aa', { method: 'POST', body, headers: { 'x-signature': 'nope' } });
     expect(bad.status).toBe(401);

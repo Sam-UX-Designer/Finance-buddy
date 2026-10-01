@@ -1,16 +1,16 @@
-import { answer, DEFAULT_SUGGESTIONS, detectIntent, forecastContext, makeEnv, weeklyBrief, type SIAskResponse, type SIHomeDTO } from '@moneymate/core';
+import { answer, DEFAULT_SUGGESTIONS, detectIntent, forecastContext, makeEnv, weeklyBrief, type SIAskResponse, type SIHomeDTO } from '@finance-buddy/core';
 import type { AppContext } from '../context';
 import { getOrCreateConversation, listMessages, saveMessage } from '../repo/misc';
 import { financialState } from '../services/finance';
 
-export function siHome(ctx: AppContext, userId: string): SIHomeDTO {
-  const state = financialState(ctx, userId);
-  const conversationId = getOrCreateConversation(ctx, userId);
+export async function siHome(ctx: AppContext, userId: string): Promise<SIHomeDTO> {
+  const state = await financialState(ctx, userId);
+  const conversationId = await getOrCreateConversation(ctx, userId);
   return {
     conversationId,
     brief: weeklyBrief(state, forecastContext(state)),
     suggestions: DEFAULT_SUGGESTIONS,
-    messages: listMessages(ctx, userId, conversationId),
+    messages: await listMessages(ctx, userId, conversationId),
   };
 }
 
@@ -20,11 +20,11 @@ export function siHome(ctx: AppContext, userId: string): SIHomeDTO {
  * otherwise, or on any failure, deterministic templates answer.
  */
 export async function ask(ctx: AppContext, userId: string, text: string, conversationId?: string): Promise<SIAskResponse> {
-  const state = financialState(ctx, userId);
+  const state = await financialState(ctx, userId);
   const env = makeEnv(state);
-  const conv = getOrCreateConversation(ctx, userId, conversationId);
-  const history = listMessages(ctx, userId, conv, 6).map((m) => ({ role: m.role, text: [m.text, ...m.bullets.map((b) => `- ${b}`)].join('\n') }));
-  const question = saveMessage(ctx, userId, conv, { role: 'user', text, bullets: [], followUps: [], intent: null, insufficient: false, engine: null });
+  const conv = await getOrCreateConversation(ctx, userId, conversationId);
+  const history = (await listMessages(ctx, userId, conv, 6)).map((m) => ({ role: m.role, text: [m.text, ...m.bullets.map((b) => `- ${b}`)].join('\n') }));
+  const question = await saveMessage(ctx, userId, conv, { role: 'user', text, bullets: [], followUps: [], intent: null, insufficient: false, engine: null });
   const detected = detectIntent(text, state.now);
   const deterministic = answer(env, text, detected);
 
@@ -41,7 +41,7 @@ export async function ask(ctx: AppContext, userId: string, text: string, convers
       ctx.log('warn', 'SI language model failed; using deterministic answer', { error: String(e) });
     }
   }
-  const reply = saveMessage(ctx, userId, conv, {
+  const reply = await saveMessage(ctx, userId, conv, {
     role: 'assistant',
     text: body.text,
     bullets: body.bullets,

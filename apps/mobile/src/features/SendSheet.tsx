@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { Platform, View } from 'react-native';
-import { parseRupeeInput } from '@moneymate/core';
+import { parseRupeeInput } from '@finance-buddy/core';
 import { space } from '@/theme/tokens';
 import { Button, TextField } from '@/ui/controls';
 import { Banner, Sheet } from '@/ui/layout';
@@ -11,7 +11,7 @@ const VPA = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9.\-]{1,64}$/;
 
 /**
  * "Send" hands the payment to the user's own UPI app via a standard UPI link.
- * MoneyMate never moves money and never asks for a UPI PIN.
+ * Finance Buddy never moves money and never asks for a UPI PIN.
  */
 export function SendSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [vpa, setVpa] = useState('');
@@ -31,7 +31,7 @@ export function SendSheet({ visible, onClose }: { visible: boolean; onClose: () 
     try {
       const ok = Platform.OS !== 'web' && (await Linking.canOpenURL(url));
       if (!ok) {
-        setError(Platform.OS === 'web' ? 'Open MoneyMate on your phone to pay with a UPI app.' : 'No UPI app found on this device.');
+        setError(Platform.OS === 'web' ? 'Open Finance Buddy on your phone to pay with a UPI app.' : 'No UPI app found on this device.');
         return;
       }
       await Linking.openURL(url);
@@ -50,7 +50,7 @@ export function SendSheet({ visible, onClose }: { visible: boolean; onClose: () 
     >
       <View style={{ gap: space.lg }}>
         <T v="small" tone="secondary">
-          Your UPI app completes the payment. MoneyMate never moves money or asks for your UPI PIN.
+          Your UPI app completes the payment. Finance Buddy never moves money or asks for your UPI PIN.
         </T>
         <TextField label="UPI ID" value={vpa} onChangeText={setVpa} placeholder="name@bank" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" error={vpa && !VPA.test(vpa.trim()) ? 'Enter a valid UPI ID, like name@okaxis' : null} />
         <TextField label="Name (optional)" value={name} onChangeText={setName} placeholder="Who are you paying?" />

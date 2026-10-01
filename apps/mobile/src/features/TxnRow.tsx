@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
-import { formatTime, type TxnDTO } from '@moneymate/core';
+import { formatTime, type TxnDTO } from '@finance-buddy/core';
 import { space } from '@/theme/tokens';
 import { EmojiAvatar, TxnAmount } from '@/ui/display';
 import { Press, Row, T } from '@/ui/primitives';

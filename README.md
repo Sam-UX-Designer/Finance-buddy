@@ -1,9 +1,9 @@
-# MoneyMate
+# Finance Buddy
 
 Personal financial intelligence, powered by **SI (Super Intelligence)** and connected through India's
 **Account Aggregator (AA)** network. One codebase for **iOS, Android and web**.
 
-![MoneyMate screens](docs/screens.jpg)
+![Finance Buddy screens](docs/screens.jpg)
 
 ## What works today
 

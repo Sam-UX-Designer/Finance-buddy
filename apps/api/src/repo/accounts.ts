@@ -1,4 +1,4 @@
-import { isDepositAccount, type Account, type AccountDTO, type AccountType, type DiscoveredAccountDTO } from '@moneymate/core';
+import { isDepositAccount, type Account, type AccountDTO, type AccountType, type DiscoveredAccountDTO } from '@finance-buddy/core';
 import { nowISO, type AppContext } from '../context';
 import { newId } from '../lib/crypto';
 import { ACCOUNT_TYPE_LABELS, fip } from '../aa/fips';
@@ -22,31 +22,28 @@ export interface AccountRow {
   updated_at: string;
 }
 
-export function listAccounts(ctx: AppContext, userId: string): AccountRow[] {
-  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at, rowid', userId);
+export function listAccounts(ctx: AppContext, userId: string): Promise<AccountRow[]> {
+  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? ORDER BY n', userId);
 }
 
-export function linkedAccounts(ctx: AppContext, userId: string): AccountRow[] {
-  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND linked = 1 ORDER BY created_at, rowid', userId);
+export function linkedAccounts(ctx: AppContext, userId: string): Promise<AccountRow[]> {
+  return ctx.db.all<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND linked = 1 ORDER BY n', userId);
 }
 
-export function getAccount(ctx: AppContext, userId: string, id: string): AccountRow | undefined {
+export function getAccount(ctx: AppContext, userId: string, id: string): Promise<AccountRow | undefined> {
   return ctx.db.get<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND id = ?', userId, id);
 }
 
-export function upsertDiscoveredAccount(
+export async function upsertDiscoveredAccount(
   ctx: AppContext,
   userId: string,
   a: { providerRef: string; fipId: string; type: AccountType; maskedNumber: string },
-): AccountRow {
-  const existing = ctx.db.get<AccountRow>('SELECT * FROM accounts WHERE user_id = ? AND provider_ref = ?', userId, a.providerRef);
-  if (existing) return existing;
+): Promise<void> {
   const now = nowISO(ctx);
-  const id = newId('acc');
-  ctx.db.run(
+  await ctx.db.run(
     `INSERT INTO accounts (id, user_id, provider_ref, fip_id, type, masked_number, display_name, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (user_id, provider_ref) DO NOTHING`,
+    newId('acc'),
     userId,
     a.providerRef,
     a.fipId,
@@ -56,7 +53,6 @@ export function upsertDiscoveredAccount(
     now,
     now,
   );
-  return getAccount(ctx, userId, id)!;
 }
 
 export function toDiscoveredDTO(row: AccountRow): DiscoveredAccountDTO {

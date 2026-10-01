@@ -1,4 +1,4 @@
-import type { AccountType, ConsentStatus, PaymentMode } from '@moneymate/core';
+import type { AccountType, ConsentStatus, PaymentMode } from '@finance-buddy/core';
 
 /**
  * Account Aggregator boundary (Blueprint §21). The app is the Financial Information User (FIU);

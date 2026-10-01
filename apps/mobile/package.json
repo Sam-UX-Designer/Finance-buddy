@@ -1,5 +1,5 @@
 {
-  "name": "@moneymate/mobile",
+  "name": "@finance-buddy/mobile",
   "main": "expo-router/entry",
   "version": "0.1.0",
   "private": true,
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
-    "@moneymate/core": "*",
+    "@finance-buddy/core": "*",
     "@tanstack/react-query": "^5.90.0",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",

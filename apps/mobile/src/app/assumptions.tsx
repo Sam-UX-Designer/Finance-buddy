@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { formatINR, parseRupeeInput, type AssumptionInfo } from '@moneymate/core';
+import { formatINR, parseRupeeInput, type AssumptionInfo } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { usePlan, useSetAssumptions } from '@/lib/queries';
 import { space } from '@/theme/tokens';

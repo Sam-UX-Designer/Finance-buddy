@@ -14,7 +14,7 @@ import {
   type ActivityFilter,
   type CategoryId,
   type TxnDTO,
-} from '@moneymate/core';
+} from '@finance-buddy/core';
 import { useAccounts, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';

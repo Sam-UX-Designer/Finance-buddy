@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Building, ChartLine, HandCoins, Info, Landmark, ShieldCheck, type LucideIcon } from 'lucide-react-native';
-import { formatDate, formatINR, type AssetKind, type HoldingDTO } from '@moneymate/core';
+import { formatDate, formatINR, type AssetKind, type HoldingDTO } from '@finance-buddy/core';
 import { useWealth } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';

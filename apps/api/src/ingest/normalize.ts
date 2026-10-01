@@ -1,4 +1,4 @@
-import { classify, type ClassificationContext, type EPFAccount, type MFHolding, type PaymentMode, type TermDeposit } from '@moneymate/core';
+import { classify, type ClassificationContext, type EPFAccount, type MFHolding, type PaymentMode, type TermDeposit } from '@finance-buddy/core';
 import { sha256 } from '../lib/crypto';
 import type { DepositPayload, EPFPayload, MutualFundPayload, TermDepositPayload } from '../aa/provider';
 import type { NewTxn } from '../repo/txns';

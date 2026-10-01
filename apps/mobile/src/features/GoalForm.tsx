@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Minus, Plus } from 'lucide-react-native';
-import { formatDate, formatINR, istParts, istToISO, monthName, parseRupeeInput, projectGoal, type GoalBody } from '@moneymate/core';
+import { formatDate, formatINR, istParts, istToISO, monthName, parseRupeeInput, projectGoal, type GoalBody } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { Chip, IconButton, TextField } from '@/ui/controls';

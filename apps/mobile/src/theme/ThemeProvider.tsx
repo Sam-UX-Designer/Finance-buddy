@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
-import type { ThemePreference } from '@moneymate/core';
+import type { ThemePreference } from '@finance-buddy/core';
 import { storage } from '@/lib/storage';
 import { dark, light, type Palette } from './tokens';
 
@@ -13,7 +13,7 @@ interface ThemeValue {
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
-const PREF_KEY = 'moneymate.theme';
+const PREF_KEY = 'financebuddy.theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();

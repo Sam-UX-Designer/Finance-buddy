@@ -1,5 +1,5 @@
 {
-  "name": "@moneymate/api",
+  "name": "@finance-buddy/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,13 +11,17 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@electric-sql/pglite": "^0.5.8",
+    "@finance-buddy/core": "*",
     "@hono/node-server": "^1.19.0",
-    "@moneymate/core": "*",
+    "@vercel/functions": "^3.9.9",
     "hono": "^4.10.0",
+    "postgres": "^3.4.9",
     "zod": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.0",
     "typescript": "~6.0.3",
     "vitest": "^3.2.4"

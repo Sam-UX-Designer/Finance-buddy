@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, CircleUserRound, Eye, EyeOff, Sparkles, TrendingUp } from 'lucide-react-native';
-import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@moneymate/core';
+import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
 import { useHome, useSync } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';

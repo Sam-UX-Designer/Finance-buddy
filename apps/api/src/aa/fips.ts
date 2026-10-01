@@ -1,4 +1,4 @@
-import type { AccountType, FipDTO } from '@moneymate/core';
+import type { AccountType, FipDTO } from '@finance-buddy/core';
 
 /**
  * Financial Information Providers known to the app. Monogram + colour are used instead of

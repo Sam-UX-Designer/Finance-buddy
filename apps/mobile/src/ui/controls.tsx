@@ -82,6 +82,7 @@ export function IconButton({
   size = 22,
   tint,
   style,
+  disabled,
 }: {
   icon: LucideIcon;
   onPress?: () => void;
@@ -90,10 +91,11 @@ export function IconButton({
   size?: number;
   tint?: string;
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
 }) {
   const { c } = useTheme();
   return (
-    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8} style={[{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, style]}>
+    <Press onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} hitSlop={8} style={[{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, style]}>
       <Icon size={size} color={tint ?? c.text} strokeWidth={1.8} />
       {dot ? <View style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: c.negative, borderWidth: 1.5, borderColor: c.bg }} /> : null}
     </Press>

@@ -82,6 +82,9 @@ export interface TxnFilters {
   filter: ActivityFilter;
   q: string;
   month?: string;
+  /** Custom date range, YYYY-MM-DD (inclusive). */
+  from?: string;
+  to?: string;
   accountId?: string;
   categoryId?: CategoryId;
 }
@@ -94,6 +97,8 @@ export function useTxns(f: TxnFilters) {
       const p = new URLSearchParams({ filter: f.filter, limit: '40' });
       if (f.q) p.set('q', f.q);
       if (f.month) p.set('month', f.month);
+      if (f.from) p.set('from', f.from);
+      if (f.to) p.set('to', f.to);
       if (f.accountId) p.set('accountId', f.accountId);
       if (f.categoryId) p.set('categoryId', f.categoryId);
       if (pageParam) p.set('cursor', pageParam);

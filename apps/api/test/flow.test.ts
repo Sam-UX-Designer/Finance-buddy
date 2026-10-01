@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { istToISO, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@finance-buddy/core';
+import { istDateKey, istToISO, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@finance-buddy/core';
 import { createApp } from '../src/app';
 import { buildContext } from '../src/bootstrap';
 import { loadConfig } from '../src/config';
@@ -117,6 +117,13 @@ describe('end-to-end onboarding and product flow', () => {
     const inv = await t.call('GET', '/v1/transactions?filter=investments&limit=5');
     expect(inv.json.items.every((x: TxnDTO) => x.type === 'INVESTMENT')).toBe(true);
     expect(inv.json.items[0].merchantName).toMatch(/SIP$/);
+
+    // Custom date range (inclusive, India time).
+    const all = await t.call('GET', '/v1/transactions?limit=500');
+    const day = istDateKey(all.json.items[3].postedAt);
+    const ranged = await t.call('GET', `/v1/transactions?from=${day}&to=${day}&limit=500`);
+    expect(ranged.json.total).toBeGreaterThan(0);
+    expect(ranged.json.items.every((x: TxnDTO) => istDateKey(x.postedAt) === day)).toBe(true);
 
     // Correction + learned rule applies to the merchant's other transactions.
     const swiggy = await t.call('GET', '/v1/transactions?q=swiggy&limit=100');

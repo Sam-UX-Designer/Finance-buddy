@@ -195,6 +195,9 @@ export interface ActivityQuery {
   categoryId?: CategoryId;
   accountId?: string;
   month?: string;
+  /** Inclusive date range in India time, YYYY-MM-DD. */
+  from?: string;
+  to?: string;
   merchantKey?: string;
   cursor?: string;
   limit?: number;
@@ -212,6 +215,8 @@ export async function activityDTO(ctx: AppContext, userId: string, query: Activi
   if (query.accountId) txns = txns.filter((t) => t.accountId === query.accountId);
   if (query.merchantKey) txns = txns.filter((t) => t.merchantKey === query.merchantKey);
   if (query.month) txns = txns.filter((t) => istMonthKey(t.postedAt) === query.month);
+  if (query.from) txns = txns.filter((t) => istDateKey(t.postedAt) >= query.from!);
+  if (query.to) txns = txns.filter((t) => istDateKey(t.postedAt) <= query.to!);
   if (query.q?.trim()) {
     const q = query.q.trim().toLowerCase();
     const digits = q.replace(/[₹,\s]/g, '');

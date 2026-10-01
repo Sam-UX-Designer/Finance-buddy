@@ -257,6 +257,8 @@ export function createApp(ctx: AppContext, opts: AppOptions = {}): Hono<Env> {
         categoryId: (CATEGORY_IDS as readonly string[]).includes(q.categoryId ?? '') ? (q.categoryId as CategoryId) : undefined,
         accountId: q.accountId,
         month: q.month && /^\d{4}-\d{2}$/.test(q.month) ? q.month : undefined,
+        from: q.from && /^\d{4}-\d{2}-\d{2}$/.test(q.from) ? q.from : undefined,
+        to: q.to && /^\d{4}-\d{2}-\d{2}$/.test(q.to) ? q.to : undefined,
         merchantKey: q.merchantKey,
         cursor: q.cursor,
         limit: q.limit ? Number(q.limit) : undefined,

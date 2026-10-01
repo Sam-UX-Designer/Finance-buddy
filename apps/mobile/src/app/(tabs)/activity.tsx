@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SectionList, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import {
   addMonthsToKey,
   formatDate,
@@ -22,6 +22,7 @@ import { Button, Chip, ChipRow, IconButton, webInputReset } from '@/ui/controls'
 import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
 import { TxnRow } from '@/features/TxnRow';
+import { DateRangeCalendar, rangeLabel, shiftDay } from '@/ui/DateRangeCalendar';
 
 const FILTERS: { key: ActivityFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -50,6 +51,7 @@ export default function ActivityScreen() {
   const [query, setQuery] = useState('');
   const [q, setQ] = useState('');
   const [month, setMonth] = useState<string | undefined>();
+  const [range, setRange] = useState<{ from: string; to: string } | undefined>();
   const [accountId, setAccountId] = useState<string | undefined>();
   const [categoryId, setCategoryId] = useState<CategoryId | undefined>();
   const [sheet, setSheet] = useState(false);
@@ -58,7 +60,10 @@ export default function ActivityScreen() {
 
   useEffect(() => {
     if (params.filter) setFilter(params.filter);
-    if (params.month) setMonth(params.month);
+    if (params.month) {
+      setMonth(params.month);
+      setRange(undefined);
+    }
     if (params.accountId) setAccountId(params.accountId);
   }, [params.filter, params.month, params.accountId]);
 
@@ -67,7 +72,7 @@ export default function ActivityScreen() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const txns = useTxns({ filter, q, month, accountId, categoryId });
+  const txns = useTxns({ filter, q, month, from: range?.from, to: range?.to, accountId, categoryId });
   const items = useMemo(() => txns.data?.pages.flatMap((p) => p.items) ?? [], [txns.data]);
   const sections = useMemo(() => {
     const out: { title: string; data: TxnDTO[] }[] = [];
@@ -79,7 +84,8 @@ export default function ActivityScreen() {
     }
     return out;
   }, [items]);
-  const activeFilters = [month, accountId, categoryId].filter(Boolean).length;
+  const activeFilters = [month, range, accountId, categoryId].filter(Boolean).length;
+  const today = istDateKey(new Date().toISOString());
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -104,6 +110,7 @@ export default function ActivityScreen() {
         {activeFilters ? (
           <Row gap={space.sm} style={{ flexWrap: 'wrap', marginBottom: space.sm }}>
             {month ? <Chip label={formatMonthKey(month, 'short')} selected onPress={() => setMonth(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
+            {range ? <Chip label={rangeLabel(range.from, range.to, today)} selected onPress={() => setRange(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
             {categoryId ? <Chip label={category(categoryId).name} selected onPress={() => setCategoryId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
             {accountId ? <Chip label="Account" selected onPress={() => setAccountId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
           </Row>
@@ -158,6 +165,7 @@ export default function ActivityScreen() {
                 setQuery('');
                 setFilter('all');
                 setMonth(undefined);
+                setRange(undefined);
                 setAccountId(undefined);
                 setCategoryId(undefined);
               }}
@@ -170,10 +178,13 @@ export default function ActivityScreen() {
         visible={sheet}
         onClose={() => setSheet(false)}
         month={month}
+        from={range?.from}
+        to={range?.to}
         accountId={accountId}
         categoryId={categoryId}
         onApply={(f) => {
           setMonth(f.month);
+          setRange(f.from && f.to ? { from: f.from, to: f.to } : undefined);
           setAccountId(f.accountId);
           setCategoryId(f.categoryId);
           setSheet(false);
@@ -183,53 +194,92 @@ export default function ActivityScreen() {
   );
 }
 
+type Filters = { month?: string; from?: string; to?: string; accountId?: string; categoryId?: CategoryId };
+
 function FilterSheet({
   visible,
   onClose,
   onApply,
   ...initial
-}: {
+}: Filters & {
   visible: boolean;
   onClose: () => void;
-  month?: string;
-  accountId?: string;
-  categoryId?: CategoryId;
-  onApply: (f: { month?: string; accountId?: string; categoryId?: CategoryId }) => void;
+  onApply: (f: Filters) => void;
 }) {
+  const { c } = useTheme();
   const accounts = useAccounts();
-  const [month, setMonth] = useState(initial.month);
-  const [accountId, setAccountId] = useState(initial.accountId);
-  const [categoryId, setCategoryId] = useState(initial.categoryId);
+  const [f, setF] = useState<Filters>(initial);
+  const [custom, setCustom] = useState(!!initial.from);
   useEffect(() => {
     if (visible) {
-      setMonth(initial.month);
-      setAccountId(initial.accountId);
-      setCategoryId(initial.categoryId);
+      setF(initial);
+      setCustom(!!initial.from);
     }
   }, [visible]);
+  const today = istDateKey(new Date().toISOString());
   const nowKey = istMonthKey(new Date().toISOString());
   const months = Array.from({ length: 12 }, (_, i) => addMonthsToKey(nowKey, -i));
   const banks = (accounts.data?.accounts ?? []).filter((a) => a.type === 'SAVINGS' || a.type === 'CURRENT');
+  const set = (patch: Filters) => setF((s) => ({ ...s, ...patch }));
+  // A start day with no end day yet means that single day.
+  const apply = () => onApply({ ...f, to: f.from ? (f.to ?? f.from) : undefined });
+  const presets = [
+    { label: 'Last 7 days', days: 7 },
+    { label: 'Last 30 days', days: 30 },
+    { label: 'Last 90 days', days: 90 },
+  ];
   return (
     <Sheet
       visible={visible}
       onClose={onClose}
       title="Filter"
+      action={<Button label="Apply" size="sm" onPress={apply} />}
       footer={
         <Row gap={space.md}>
-          <Button label="Reset" variant="outline" style={{ flex: 1 }} onPress={() => onApply({})} />
-          <Button label="Apply" style={{ flex: 1 }} onPress={() => onApply({ month, accountId, categoryId })} />
+          <Button label="Clear all" variant="outline" style={{ flex: 1 }} onPress={() => onApply({})} />
+          <Button label="Apply" style={{ flex: 1 }} onPress={apply} />
         </Row>
       }
     >
       <T v="smallMedium" tone="secondary" style={{ marginBottom: space.sm }}>
-        Month
+        Date
       </T>
       <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
+        <Chip
+          label="Custom dates"
+          icon={<CalendarDays size={14} color={custom ? c.primaryText : c.text} />}
+          selected={custom}
+          onPress={() => {
+            setCustom(!custom);
+            set({ month: undefined, from: undefined, to: undefined });
+          }}
+        />
         {months.map((m) => (
-          <Chip key={m} label={formatMonthKey(m, 'short')} selected={month === m} onPress={() => setMonth(month === m ? undefined : m)} />
+          <Chip
+            key={m}
+            label={formatMonthKey(m, 'short')}
+            selected={!custom && f.month === m}
+            onPress={() => {
+              setCustom(false);
+              set({ month: f.month === m && !custom ? undefined : m, from: undefined, to: undefined });
+            }}
+          />
         ))}
       </Row>
+      {custom ? (
+        <View style={{ marginTop: space.lg }}>
+          <Row gap={space.sm} style={{ flexWrap: 'wrap', marginBottom: space.md }}>
+            {presets.map((p) => {
+              const from = shiftDay(today, -(p.days - 1));
+              return <Chip key={p.label} label={p.label} selected={f.from === from && f.to === today} onPress={() => set({ from, to: today })} />;
+            })}
+          </Row>
+          <T v="small" tone="secondary" style={{ marginBottom: space.sm }} accessibilityLiveRegion="polite">
+            {!f.from ? 'Tap a start date.' : !f.to ? `From ${rangeLabel(f.from, undefined, today)}. Now tap an end date, or Apply for just this day.` : `Showing ${rangeLabel(f.from, f.to, today)}`}
+          </T>
+          <DateRangeCalendar from={f.from} to={f.to} today={today} onChange={(r) => set(r)} />
+        </View>
+      ) : null}
       {banks.length > 1 ? (
         <>
           <T v="smallMedium" tone="secondary" style={{ marginTop: space.xl, marginBottom: space.sm }}>
@@ -237,7 +287,7 @@ function FilterSheet({
           </T>
           <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
             {banks.map((a) => (
-              <Chip key={a.id} label={`${a.fip.shortName} ••${a.maskedNumber.slice(-4)}`} selected={accountId === a.id} onPress={() => setAccountId(accountId === a.id ? undefined : a.id)} />
+              <Chip key={a.id} label={`${a.fip.shortName} ••${a.maskedNumber.slice(-4)}`} selected={f.accountId === a.id} onPress={() => set({ accountId: f.accountId === a.id ? undefined : a.id })} />
             ))}
           </Row>
         </>
@@ -247,7 +297,7 @@ function FilterSheet({
       </T>
       <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
         {SPEND_CATEGORY_IDS.map((id) => (
-          <Chip key={id} label={`${category(id).emoji} ${category(id).name}`} selected={categoryId === id} onPress={() => setCategoryId(categoryId === id ? undefined : id)} />
+          <Chip key={id} label={`${category(id).emoji} ${category(id).name}`} selected={f.categoryId === id} onPress={() => set({ categoryId: f.categoryId === id ? undefined : id })} />
         ))}
       </Row>
     </Sheet>

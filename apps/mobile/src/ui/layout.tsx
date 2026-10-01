@@ -182,9 +182,25 @@ export function TabHeader({ title, right }: { title: string; right?: ReactNode }
 }
 
 /** Bottom sheet for secondary actions (Blueprint §18). */
-export function Sheet({ visible, onClose, title, children, footer }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode; footer?: ReactNode }) {
+export function Sheet({
+  visible,
+  onClose,
+  title,
+  children,
+  footer,
+  action,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  /** A button in the header (e.g. Apply), always visible however long the sheet is. */
+  action?: ReactNode;
+}) {
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
+  const webBottom = useWebCoveredBottom(visible);
   const y = useRef(new Animated.Value(40)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -208,7 +224,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: webBottom,
             maxHeight: '88%',
             alignItems: 'center',
             transform: [{ translateY: y }],
@@ -227,7 +243,15 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
             <View style={{ alignItems: 'center', paddingTop: 8 }}>
               <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: c.border }} />
             </View>
-            {title ? (
+            {title && action ? (
+              <Row style={{ paddingHorizontal: PAGE_X, paddingTop: space.md, gap: space.sm }}>
+                <IconButton icon={X} label="Close" onPress={onClose} size={20} style={{ marginLeft: -10 }} />
+                <T v="subtitle" accessibilityRole="header" style={{ flex: 1, textAlign: 'center' }}>
+                  {title}
+                </T>
+                {action}
+              </Row>
+            ) : title ? (
               <Row style={{ justifyContent: 'space-between', paddingHorizontal: PAGE_X, paddingTop: space.md }}>
                 <T v="subtitle" accessibilityRole="header" style={{ flex: 1 }}>
                   {title}
@@ -244,6 +268,33 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+/**
+ * Web on phones: how much of the screen bottom the browser's own toolbar covers (iPhone Safari
+ * floats its toolbar over full-screen layers like sheets). The app's root view ends above it, so
+ * the difference is the covered part. 0 everywhere else.
+ */
+function useWebCoveredBottom(active: boolean): number {
+  const [covered, setCovered] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !active || typeof window === 'undefined') return;
+    const measure = () => {
+      const root = document.getElementById('root');
+      const rootBottom = root ? root.getBoundingClientRect().bottom : window.innerHeight;
+      const vv = window.visualViewport;
+      const visibleBottom = Math.min(rootBottom, vv ? vv.offsetTop + vv.height : rootBottom);
+      setCovered(Math.max(0, Math.round(window.innerHeight - visibleBottom)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('resize', measure);
+    };
+  }, [active]);
+  return covered;
 }
 
 // ── System states (Blueprint §25) ────────────────────────────────────

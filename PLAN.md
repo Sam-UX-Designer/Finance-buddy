@@ -32,7 +32,7 @@ App ──► API (Hono)
           ├── Forecast Engine cash forecast, affordability, goal + net-worth projection
           ├── SI Service      intent → engine tools → grounded explanation (optional Claude)
           ├── Notifications   upcoming payments, sync events, insights
-          └── SQLite store    (swap for Postgres in production)
+          └── Postgres        (Supabase in production, PGlite locally)
 ```
 
 ## 3. Build phases (follows Blueprint §27)
@@ -57,7 +57,7 @@ App ──► API (Hono)
 Later (needs credentials / business onboarding, not code-blocked):
 - Replace mock AA with the chosen partner's **sandbox/UAT** (FIU onboarding required).
 - Plug in a real SMS provider for OTP.
-- Move SQLite → managed Postgres, add KMS-managed encryption keys, observability.
+- Done: Supabase Postgres + Vercel hosting. Next: KMS-managed encryption keys, observability.
 
 ## 4. Key product rules baked into code
 
@@ -91,5 +91,5 @@ These are small interpretations of the mockup — easy to change:
 Next (needs credentials or business decisions, not code):
 1. AA partner sandbox/UAT adapter (implements `apps/api/src/aa/provider.ts`) — needs FIU onboarding.
 2. SMS provider for OTP (implements `apps/api/src/auth/sms.ts`).
-3. Hosting: managed Postgres, KMS-managed encryption key, logs/metrics, EAS store builds.
+3. Hosting: Supabase + Vercel are live. Remaining: KMS-managed encryption key, logs/metrics, EAS store builds.
 4. Licensed bank logos to replace monograms.

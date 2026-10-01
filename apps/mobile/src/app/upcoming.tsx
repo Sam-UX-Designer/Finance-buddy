@@ -30,7 +30,7 @@ export default function UpcomingScreen() {
               <View key={`${u.seriesKey}${u.dueDateKey}`}>
                 {i > 0 ? <Divider inset={52} /> : null}
                 <ListRow
-                  left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} />}
+                  left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} merchantKey={u.seriesKey.split('|')[0]} />}
                   title={u.merchantName}
                   subtitle={`${u.type === 'INVESTMENT' ? 'Investment' : category(u.categoryId).name} · ${formatDate(u.dueDate)}`}
                   right={formatINR(u.amount, { decimals: 0 })}

@@ -19,12 +19,39 @@ Personal financial intelligence, powered by **SI (Super Intelligence)** and conn
 | Accounts & consent management (revoke deletes shared data), notifications, settings | Working |
 | Light + dark themes, loading / empty / error / offline / partial-data states | Working |
 
-What still needs business setup (not code): a licensed AA partner's UAT/production credentials,
-an SMS provider for OTP, and production hosting. See [PLAN.md](PLAN.md).
+What still needs business setup (not code): a licensed AA partner's UAT/production credentials and
+an SMS provider for OTP. See [PLAN.md](PLAN.md).
 
-## Run it
+## Live
 
-Requires **Node 22.13+**.
+**https://finance-buddy-theta.vercel.app** (sandbox mode: OTP `123456`, test bank data).
+
+| Piece | Where |
+|---|---|
+| Web app + API | Vercel project `finance-buddy` (region Mumbai `bom1`). The API is served from the same domain under `/api`. |
+| Database | Supabase project `Finance-buddy` (Postgres 17, `ap-south-1`). Schema in `supabase/migrations/`. |
+| Deploys | Every push to the production branch builds with `npm run vercel-build` (`scripts/vercel-build.mjs`). |
+
+### Keys and where they live
+
+No secret is stored in this repository. Production values are set in **Vercel → Project → Settings → Environment Variables**:
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | Supabase pooler URL for the `fb_api` database login (transaction mode, port 6543) |
+| `DATA_ENCRYPTION_KEY` | 32-byte key that encrypts phone numbers, names, narrations, notes and holdings (AES-256-GCM) |
+| `AA_WEBHOOK_SECRET` | Verifies Account Aggregator webhook signatures |
+| `SANDBOX_MODE` | `true` = test OTP + sandbox AA. Set to `false` only once real SMS and AA partner keys are added |
+| `ANTHROPIC_API_KEY` | Optional. Lets Claude word SI answers (numbers still come only from the Finance Engine) |
+
+Database security: Row Level Security is on for every table, the public `anon`/`authenticated` roles have no
+access, and only the API's own `fb_api` login can read or write. Browsers never talk to the database directly.
+To rotate the database password: Supabase SQL editor → `ALTER ROLE fb_api WITH PASSWORD '<new>';`, then update
+`DATABASE_URL` in Vercel and redeploy.
+
+## Run it locally
+
+Requires **Node 22.13+**. Locally the API uses an embedded Postgres (PGlite) in `apps/api/data/`, so no setup is needed.
 
 ```bash
 npm install
@@ -71,9 +98,12 @@ apps/mobile      Expo Router app (iOS, Android, web)
   src/app        Screens (file-based routes): onboarding/, (tabs)/, transaction/, goal/, settings…
   src/ui         Design system components (text, buttons, cards, chips, sheets, states)
   src/theme      Design tokens — light (#FFFFFF) and dark (#000000) share one semantic set
-apps/api         Node + Hono API, SQLite, AA integration, ingestion, SI service
+apps/api         Node + Hono API, Postgres (Supabase; PGlite locally), AA integration, ingestion, SI service
   src/aa         AA provider interface + sandbox provider (swap point for the real partner)
+  src/vercel.ts  Vercel Function entry
 packages/core    Finance Engine, Forecast Engine, SI tools, shared API types (pure + tested)
+supabase         Database migrations (schema, RLS, API role)
+scripts          Vercel build (web app + API function)
 e2e              Browser walkthrough
 ```
 
@@ -84,3 +114,9 @@ e2e              Browser walkthrough
 - The bank-reported balance is the source of truth; history is never edited to force a match.
 - SI only states facts produced by engine tools. If there isn't enough data, it says so.
 - No bank passwords, ever. Sensitive fields are encrypted at rest (AES-256-GCM).
+
+## Credits
+
+- 3D icons: [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT).
+- Bank and merchant logos: [Simple Icons](https://simpleicons.org) (CC0). Logos are trademarks of their
+  owners and are shown only to identify the bank or merchant. Banks without a logo there (e.g. SBI) use a monogram.

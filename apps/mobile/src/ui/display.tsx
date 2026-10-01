@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, View, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { formatINR, type CategoryId, type FipDTO, type Paise, type TxnType } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space, type TypeVariant } from '@/theme/tokens';
 import type { Palette } from '@/theme/tokens';
+import { BRAND_LOGOS } from './brands';
+import { icon3d } from './icons3d';
 import { Press, Row, T } from './primitives';
 
 /** Soft background tint per category for merchant avatars. */
@@ -24,18 +27,46 @@ const CATEGORY_TINT: Partial<Record<CategoryId, keyof Palette>> = {
   family: 'loanSoft',
 };
 
-export function EmojiAvatar({ emoji, categoryId, size = 40 }: { emoji: string; categoryId?: CategoryId; size?: number }) {
+/**
+ * Round avatar for a category, goal or merchant: the merchant's logo when we have it,
+ * otherwise a 3D icon for the emoji, otherwise the emoji itself.
+ */
+export function EmojiAvatar({ emoji, categoryId, merchantKey, size = 40 }: { emoji: string; categoryId?: CategoryId; merchantKey?: string; size?: number }) {
   const { c } = useTheme();
+  const logo = merchantKey ? BRAND_LOGOS[merchantKey] : undefined;
+  if (logo) return <BrandTile hex={logo.hex} path={logo.path} label={logo.title} size={size} round />;
   const tint = (categoryId && CATEGORY_TINT[categoryId]) || 'surfaceMuted';
+  const img = icon3d(emoji);
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c[tint], alignItems: 'center', justifyContent: 'center' }} importantForAccessibility="no">
-      <T style={{ fontSize: size * 0.46, lineHeight: size * 0.6 }}>{emoji}</T>
+      {img ? (
+        <Image source={img} style={{ width: size * 0.62, height: size * 0.62 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+      ) : (
+        <T style={{ fontSize: size * 0.46, lineHeight: size * 0.6 }}>{emoji}</T>
+      )}
     </View>
   );
 }
 
-/** Bank / FIP mark. Uses a monogram in the institution's colour instead of a licensed logo. */
+/** A brand's logo glyph in white on its brand colour. */
+function BrandTile({ hex, path, label, size, round }: { hex: string; path: string; label: string; size: number; round?: boolean }) {
+  const glyph = size * 0.56;
+  return (
+    <View
+      style={{ width: size, height: size, borderRadius: round ? size / 2 : size * 0.28, backgroundColor: hex, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityLabel={label}
+    >
+      <Svg width={glyph} height={glyph} viewBox="0 0 24 24">
+        <Path d={path} fill="#FFFFFF" />
+      </Svg>
+    </View>
+  );
+}
+
+/** Bank / FIP mark: the bank's logo when available, otherwise a monogram in its colour. */
 export function FipMark({ fip, size = 36 }: { fip: FipDTO; size?: number }) {
+  const logo = BRAND_LOGOS[fip.id];
+  if (logo) return <BrandTile hex={logo.hex} path={logo.path} label={fip.name} size={size} />;
   return (
     <View
       style={{ width: size, height: size, borderRadius: size * 0.28, backgroundColor: fip.color, alignItems: 'center', justifyContent: 'center' }}

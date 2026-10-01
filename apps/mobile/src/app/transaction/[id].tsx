@@ -56,7 +56,7 @@ export default function TransactionScreen() {
       ) : (
         <FadeIn>
           <View style={{ alignItems: 'center', gap: 6, marginTop: space.sm }}>
-            <EmojiAvatar emoji={t.emoji} categoryId={t.categoryId} size={68} />
+            <EmojiAvatar emoji={t.emoji} categoryId={t.categoryId} merchantKey={t.merchantKey} size={68} />
             <T v="subtitle" align="center" style={{ marginTop: space.sm }} accessibilityRole="header">
               {t.merchantName}
             </T>

@@ -90,7 +90,7 @@ export interface FipDTO {
   id: string;
   name: string;
   shortName: string;
-  /** Monogram + brand colour used instead of licensed logos. */
+  /** Monogram + brand colour, shown when the app has no logo for this FIP. */
   monogram: string;
   color: string;
 }

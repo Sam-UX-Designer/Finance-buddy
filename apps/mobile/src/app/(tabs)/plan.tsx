@@ -184,7 +184,7 @@ function Forecast({ q }: { q: ReturnType<typeof useForecast> }) {
           {f.obligationItems.map((u, i) => (
             <View key={`${u.seriesKey}${u.dueDateKey}`}>
               {i > 0 ? <Divider /> : null}
-              <ListRow left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} size={36} />} title={u.merchantName} subtitle={formatDate(u.dueDate)} right={formatINR(u.amount, { decimals: 0 })} />
+              <ListRow left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} merchantKey={u.seriesKey.split('|')[0]} size={36} />} title={u.merchantName} subtitle={formatDate(u.dueDate)} right={formatINR(u.amount, { decimals: 0 })} />
             </View>
           ))}
         </View>

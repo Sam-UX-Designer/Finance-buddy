@@ -15,7 +15,7 @@ export function TxnRow({ t }: { t: TxnDTO }) {
       scaleTo={0.99}
     >
       <Row gap={space.md} style={{ paddingVertical: 10 }}>
-        <EmojiAvatar emoji={t.emoji} categoryId={t.categoryId} size={42} />
+        <EmojiAvatar emoji={t.emoji} categoryId={t.categoryId} merchantKey={t.merchantKey} size={42} />
         <View style={{ flex: 1, gap: 2 }}>
           <T v="bodyMedium" numberOfLines={1}>
             {t.merchantName}

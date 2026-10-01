@@ -1,8 +1,8 @@
 import type { AccountType, FipDTO } from '@finance-buddy/core';
 
 /**
- * Financial Information Providers known to the app. Monogram + colour are used instead of
- * licensed brand logos until logo usage is cleared.
+ * Financial Information Providers known to the app. The app shows each bank's logo when it has one
+ * and falls back to this monogram + colour.
  */
 export const FIPS: Record<string, FipDTO> = {
   hdfc: { id: 'hdfc', name: 'HDFC Bank', shortName: 'HDFC Bank', monogram: 'H', color: '#004C8F' },

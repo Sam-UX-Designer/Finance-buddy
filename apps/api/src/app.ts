@@ -94,7 +94,16 @@ export function createApp(ctx: AppContext, opts: AppOptions = {}): Hono<Env> {
   });
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, 404));
 
-  app.get('/health', (c) => c.json({ ok: true, aa: ctx.aa.name, sms: ctx.sms.name, si: ctx.llm ? 'llm' : 'rules' }));
+  app.get('/health', async (c) => {
+    let db: 'ok' | 'unavailable' = 'ok';
+    try {
+      await ctx.db.get('SELECT 1 AS ok');
+    } catch (e) {
+      db = 'unavailable';
+      ctx.log('error', 'health: database check failed', { error: String(e) });
+    }
+    return c.json({ ok: db === 'ok', db, aa: ctx.aa.name, sms: ctx.sms.name, si: ctx.llm ? 'llm' : 'rules', sandbox: ctx.config.SANDBOX_MODE }, db === 'ok' ? 200 : 503);
+  });
 
   // ── Auth (public) ──────────────────────────────────────────────────
   const clientIp = (c: Context) => c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'local';

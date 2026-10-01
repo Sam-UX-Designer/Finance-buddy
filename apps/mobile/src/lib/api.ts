@@ -6,7 +6,10 @@ function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, '');
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-    return `${window.location.protocol}//${window.location.hostname}:4000`;
+    const { protocol, hostname, origin } = window.location;
+    const local = hostname === 'localhost' || hostname === '127.0.0.1' || /^192\.168\.|^10\./.test(hostname);
+    // Local development runs the API on :4000; deployed builds serve it from the same domain under /api.
+    return local ? `${protocol}//${hostname}:4000` : `${origin}/api`;
   }
   // On a device, the API runs on the same machine as the Expo dev server.
   const host = Constants.expoConfig?.hostUri?.split(':')[0];

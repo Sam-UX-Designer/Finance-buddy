@@ -8,14 +8,15 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.13"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "concurrently -k -n api,app -c blue,magenta \"npm run dev -w @finance-buddy/api\" \"npm run start -w @finance-buddy/mobile\"",
     "dev:api": "npm run dev -w @finance-buddy/api",
     "dev:web": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @finance-buddy/api\" \"npm run web -w @finance-buddy/mobile\"",
     "test": "npm run test -w @finance-buddy/core && npm run test -w @finance-buddy/api",
-    "typecheck": "npm run typecheck -w @finance-buddy/core && npm run typecheck -w @finance-buddy/api && npm run typecheck -w @finance-buddy/mobile"
+    "typecheck": "npm run typecheck -w @finance-buddy/core && npm run typecheck -w @finance-buddy/api && npm run typecheck -w @finance-buddy/mobile",
+    "vercel-build": "node scripts/vercel-build.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

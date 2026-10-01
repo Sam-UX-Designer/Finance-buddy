@@ -246,7 +246,7 @@ export default function SIScreen() {
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
           <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
             <Row gap={space.md} style={{ height: HEADER_H, width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
-              <SIOrb size={38} />
+              <SIOrb size={38} active={!!pending} />
               <View style={{ flex: 1 }}>
                 <T v="bodySemibold" accessibilityRole="header">
                   Super Intelligence

@@ -4,10 +4,12 @@ import { Animated, Platform, TextInput, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import type { OtpRequestResponse, SessionResponse } from '@finance-buddy/core';
 import { api, errorMessage } from '@/lib/api';
+import { haptics } from '@/lib/haptics';
 import { routeForState, useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { BackHeader, FadeIn, Screen } from '@/ui/layout';
+import { LockBuddy, type LockMood } from '@/ui/LockBuddy';
 import { Press, Row, T } from '@/ui/primitives';
 
 export default function OtpScreen() {
@@ -28,6 +30,7 @@ export default function OtpScreen() {
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
+  const mood: LockMood = verified ? 'happy' : busy ? 'checking' : error ? 'error' : 'idle';
   const secondsLeft = Math.max(0, Math.ceil((Date.parse(resendAfter ?? '') - now) / 1000));
 
   const verify = async (value: string) => {
@@ -40,10 +43,12 @@ export default function OtpScreen() {
         body: { challengeId, code: value, platform, deviceName: platform === 'web' ? 'Web browser' : platform === 'ios' ? 'iPhone' : 'Android phone' },
       });
       setVerified(true);
+      haptics.success();
       Animated.timing(success, { toValue: 1, duration: reduceMotion ? 0 : 250, useNativeDriver: true }).start();
       await signIn(s);
-      setTimeout(() => router.replace(routeForState(s.user.onboardingState) as never), reduceMotion ? 0 : 450);
+      setTimeout(() => router.replace(routeForState(s.user.onboardingState) as never), reduceMotion ? 0 : 1500);
     } catch (e) {
+      haptics.error();
       setError(errorMessage(e));
       setCode('');
       input.current?.focus();
@@ -67,8 +72,9 @@ export default function OtpScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <BackHeader />
-      <FadeIn style={{ alignItems: 'center', marginTop: space.xxl }}>
-        <T v="title" accessibilityRole="header">
+      <FadeIn style={{ alignItems: 'center', marginTop: space.lg }}>
+        <LockBuddy size={104} progress={code.length} mood={mood} />
+        <T v="title" accessibilityRole="header" style={{ marginTop: space.lg }}>
           Verify your number
         </T>
         <Row gap={6} style={{ marginTop: space.sm }}>

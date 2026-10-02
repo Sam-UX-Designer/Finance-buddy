@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
 import { ArrowUp, CircleAlert, Maximize2 } from 'lucide-react-native';
 import { greetingFor } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
@@ -13,7 +13,7 @@ import { ErrorState, Skeleton, useSoftShadow } from '@/ui/layout';
 import { Press, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
 import { PromptPills } from './PromptPills';
-import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from './SIMessages';
+import { BriefLine, Message, TypingDots, UPDATE_NUMBERS, useFreshMessages, UserBubble } from './SIMessages';
 
 /** Height of the conversation area; longer chats scroll inside it. */
 const CHAT_H = 210;
@@ -27,11 +27,13 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
   const { c } = useTheme();
   const { me } = useSession();
   const si = useSI();
+  const fresh = useFreshMessages(si.data?.conversationId, si.data?.messages);
   const ask = useAsk();
   const [text, setText] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
+  const nearBottom = useRef(true);
   const shadow = useSoftShadow();
   const messages = si.data?.messages ?? [];
 
@@ -106,7 +108,20 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
             <Skeleton height={16} width="60%" />
           </View>
         ) : (
-          <ScrollView ref={scroll} style={{ height: CHAT_H }} contentContainerStyle={{ gap: space.lg, paddingBottom: space.xs }}>
+          <ScrollView
+            ref={scroll}
+            style={{ height: CHAT_H }}
+            contentContainerStyle={{ gap: space.lg, paddingBottom: space.xs }}
+            // While an answer types out, keep the newest words in view (unless you've scrolled up to read).
+            onScroll={(e) => {
+              const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+              nearBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 80;
+            }}
+            scrollEventThrottle={32}
+            onContentSizeChange={() => {
+              if (nearBottom.current) scroll.current?.scrollToEnd({ animated: false });
+            }}
+          >
             {messages.length === 0 ? (
               <View style={{ gap: space.sm }}>
                 <T v="bodySemibold">{`${greetingFor(new Date().toISOString())}${first ? `, ${first}` : ''}!`}</T>
@@ -126,17 +141,12 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
                 )}
               </View>
             ) : (
-              messages.map((m) => <Message key={m.id} m={m} />)
+              messages.map((m) => <Message key={m.id} m={m} typing={fresh.isFresh(m.id)} onTyped={() => fresh.markSeen(m.id)} />)
             )}
             {pending ? (
               <>
                 <UserBubble text={pending} />
-                <Row gap={space.sm}>
-                  <ActivityIndicator size="small" color={c.textSecondary} />
-                  <T v="small" tone="secondary">
-                    Checking your numbers…
-                  </T>
-                </Row>
+                <TypingDots />
               </>
             ) : null}
             {error ? (
@@ -149,7 +159,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
             ) : null}
           </ScrollView>
         )}
-        {si.data && !pending && prompts.length ? (
+        {si.data && !pending && !fresh.typing && prompts.length ? (
           <PromptPills key={prompts.join('|')} items={prompts} onPick={send} fade={c.surface} padX={space.md} style={{ marginHorizontal: -space.md }} />
         ) : null}
         <Row gap={space.sm} style={{ height: 44, borderRadius: 22, paddingLeft: space.lg, paddingRight: 4, backgroundColor: c.surfaceMuted }}>

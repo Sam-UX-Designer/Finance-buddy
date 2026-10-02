@@ -1,4 +1,5 @@
-import { View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Platform, View } from 'react-native';
 import { CircleAlert, CircleCheck, Info } from 'lucide-react-native';
 import type { BriefItem, SIMessageDTO } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -36,25 +37,146 @@ export function UserBubble({ text }: { text: string }) {
   );
 }
 
-export function Message({ m }: { m: SIMessageDTO }) {
-  const { c } = useTheme();
+/** Typing speed: one word every WORD_MS; long answers type several words a tick so none takes over ~2.5 s. */
+const WORD_MS = 26;
+const MAX_TICKS = 95;
+
+/** Splits text into words and the spaces between them, so a partly typed line keeps its spacing. */
+const tokenize = (text: string) => text.split(/(\s+)/).filter(Boolean);
+const isSpace = (t: string) => /^\s+$/.test(t);
+
+/**
+ * One chat message. A new answer (`typing`) types itself out word by word, fast, like ChatGPT,
+ * with a small cursor dot; `onTyped` fires once it has finished. Answers from history (and anyone
+ * using Reduce Motion) see the whole answer at once.
+ */
+export function Message({ m, typing = false, onTyped }: { m: SIMessageDTO; typing?: boolean; onTyped?: () => void }) {
+  const { c, reduceMotion } = useTheme();
+  const parts = useMemo(() => [m.text, ...m.bullets].map(tokenize), [m.text, m.bullets]);
+  const words = parts.map((p) => p.filter((t) => !isSpace(t)).length);
+  const total = words.reduce((a, b) => a + b, 0);
+  const animate = typing && !reduceMotion && m.role === 'assistant';
+  const [shown, setShown] = useState(animate ? 0 : total);
+  const done = useRef(!animate);
+
+  useEffect(() => {
+    if (shown >= total) {
+      if (!done.current) {
+        done.current = true;
+        onTyped?.();
+      }
+      return;
+    }
+    const step = Math.max(1, Math.ceil(total / MAX_TICKS));
+    const t = setTimeout(() => setShown((n) => Math.min(total, n + step)), WORD_MS);
+    return () => clearTimeout(t);
+  }, [shown, total]);
+
   if (m.role === 'user') return <UserBubble text={m.text} />;
-  return (
-    <FadeIn>
-      <View style={{ gap: space.sm }}>
-        <T v="body">{m.text}</T>
-        {m.bullets.map((b, i) => (
+
+  const typingNow = shown < total;
+  // Words of each part (the answer, then each bullet) that are showing so far.
+  let left = shown;
+  const visible = parts.map((tokens, i) => {
+    const n = Math.max(0, Math.min(words[i]!, left));
+    left -= n;
+    let count = 0;
+    const out: string[] = [];
+    for (const t of tokens) {
+      if (!isSpace(t)) {
+        if (count === n) break;
+        count += 1;
+      }
+      out.push(t);
+    }
+    return { text: out.join('').trimEnd(), started: n > 0, finished: n === words[i] };
+  });
+  const cursorAt = typingNow ? visible.findIndex((v) => !v.finished) : -1;
+  const cursor = <T v="body" color={c.textSecondary}>{' ●'}</T>;
+
+  const body = (
+    <View style={{ gap: space.sm }} accessibilityLiveRegion={animate ? 'polite' : undefined}>
+      <T v="body">
+        {visible[0]!.text}
+        {cursorAt === 0 ? cursor : null}
+      </T>
+      {m.bullets.map((_, i) =>
+        visible[i + 1]!.started ? (
           <Row key={i} gap={space.sm} style={{ alignItems: 'flex-start' }}>
             <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textSecondary, marginTop: 9 }} />
             <T v="body" style={{ flex: 1 }}>
-              {b}
+              {visible[i + 1]!.text}
+              {cursorAt === i + 1 ? cursor : null}
             </T>
           </Row>
-        ))}
+        ) : null,
+      )}
+      {typingNow ? null : (
         <T v="caption" tone="tertiary">
           {m.insufficient ? 'Based on the data available so far.' : 'Calculated from your connected accounts.'}
         </T>
-      </View>
-    </FadeIn>
+      )}
+    </View>
+  );
+  return animate ? body : <FadeIn>{body}</FadeIn>;
+}
+
+/**
+ * Which messages arrived while the chat was open (so they type themselves out). Everything already
+ * in a chat when it is first shown, or opened from history, counts as seen and appears at once.
+ */
+export function useFreshMessages(conversationId: string | undefined, messages: SIMessageDTO[] | undefined) {
+  const seen = useRef<{ conv?: string; ids: Set<string> }>({ ids: new Set() });
+  const [, redraw] = useState(0);
+  if (conversationId && messages && seen.current.conv !== conversationId) {
+    seen.current = { conv: conversationId, ids: new Set(messages.map((x) => x.id)) };
+  }
+  const isFresh = (id: string) => !seen.current.ids.has(id);
+  return {
+    isFresh,
+    /** An answer is still typing out (suggested questions wait until it finishes). */
+    typing: (messages ?? []).some((x) => x.role === 'assistant' && isFresh(x.id)),
+    markSeen: (id: string) => {
+      seen.current.ids.add(id);
+      redraw((n) => n + 1);
+    },
+  };
+}
+
+/** Three dots that bounce while Super Intelligence works on an answer. */
+export function TypingDots() {
+  const { c, reduceMotion } = useTheme();
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    if (reduceMotion) return;
+    const loops = dots.map((d, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 140),
+          Animated.timing(d, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(d, { toValue: 0, duration: 260, easing: Easing.in(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+          Animated.delay((2 - i) * 140 + 200),
+        ]),
+      ),
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [reduceMotion]);
+  return (
+    <Row gap={5} style={{ height: 24, paddingHorizontal: 2 }} accessible accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
+      {dots.map((d, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: c.textSecondary,
+            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+            transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+          }}
+        />
+      ))}
+    </Row>
   );
 }

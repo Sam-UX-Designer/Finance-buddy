@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowUp, CircleAlert, History, Mic, SquarePen, X } from 'lucide-react-native';
 import { greetingFor } from '@finance-buddy/core';
@@ -8,7 +8,7 @@ import { errorMessage } from '@/lib/api';
 import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
 import { storage } from '@/lib/storage';
 import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
-import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from '@/features/SIMessages';
+import { BriefLine, Message, TypingDots, UPDATE_NUMBERS, useFreshMessages, UserBubble } from '@/features/SIMessages';
 import { PromptPills } from '@/features/PromptPills';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
@@ -31,11 +31,14 @@ export default function SIScreen() {
   const [openId, setOpenId] = useState<string | undefined>();
   const [historyOpen, setHistoryOpen] = useState(false);
   const si = useSI(openId);
+  // New answers type themselves out; chats already on screen or opened from history appear at once.
+  const fresh = useFreshMessages(si.data?.conversationId, si.data?.messages);
   const ask = useAsk();
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
+  const nearBottom = useRef(true);
   const handledQ = useRef<string | null>(null);
   const newChat = useNewChat();
   const wide = useWide();
@@ -131,7 +134,7 @@ export default function SIScreen() {
   const lastAnswer = [...messages].reverse().find((m) => m.role === 'assistant');
   const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 6);
   const replies = setup.active ? setup.replies : prompts;
-  const showSuggestions = !!si.data && !pending && replies.length > 0;
+  const showSuggestions = !!si.data && !pending && !fresh.typing && replies.length > 0;
   const inputBottom = keyboard ? space.sm : wide ? space.lg : tabInset;
   const startNewChat = () => {
     setup.exit();
@@ -199,6 +202,15 @@ export default function SIScreen() {
               <ScrollView
                 ref={scroll}
                 keyboardShouldPersistTaps="handled"
+                // While an answer types out, keep the newest words in view (unless you've scrolled up to read).
+                onScroll={(e) => {
+                  const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+                  nearBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 160;
+                }}
+                scrollEventThrottle={32}
+                onContentSizeChange={() => {
+                  if (nearBottom.current) scroll.current?.scrollToEnd({ animated: false });
+                }}
                 contentContainerStyle={{
                   width: '100%',
                   maxWidth: width,
@@ -267,17 +279,12 @@ export default function SIScreen() {
                     {/* Conversation */}
                     <View style={{ marginTop: space.xl, gap: space.lg }}>
                       {si.data.messages.map((m) => (
-                        <Message key={m.id} m={m} />
+                        <Message key={m.id} m={m} typing={fresh.isFresh(m.id)} onTyped={() => fresh.markSeen(m.id)} />
                       ))}
                       {pending ? (
                         <>
                           <UserBubble text={pending} />
-                          <Row gap={space.sm} accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
-                            <ActivityIndicator size="small" color={c.textSecondary} />
-                            <T v="small" tone="secondary">
-                              Checking your numbers…
-                            </T>
-                          </Row>
+                          <TypingDots />
                         </>
                       ) : null}
                       {error ? (

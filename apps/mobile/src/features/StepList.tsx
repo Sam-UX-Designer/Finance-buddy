@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, View } from 'react-native';
+import { Animated, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import type { JobStep } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';
+import { ThinkingOrb } from '@/ui/orbs/ThinkingOrb';
 import { Row, T } from '@/ui/primitives';
 
 function StepIcon({ status, size }: { status: JobStep['status']; size: number }) {
@@ -26,10 +27,12 @@ function StepIcon({ status, size }: { status: JobStep['status']; size: number })
       </View>
     );
   }
+  // The step in progress: a constellation wiring itself, for connecting to your banks. It's drawn
+  // larger than the step circles (spilling a little into the gap) so its lines stay visible.
   if (status === 'RUNNING') {
     return (
-      <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: c.infoSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="small" color={c.info} style={{ transform: [{ scale: 0.7 }] }} />
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <ThinkingOrb state="connecting" size={36} />
       </View>
     );
   }

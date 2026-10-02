@@ -17,6 +17,7 @@ import { Banner, ErrorState, FadeIn, PAGE_X, Screen, Skeleton, useContentWidth, 
 import { GlassSurface } from '@/ui/glass';
 import { Card, LongPressContext, Press, Row, SectionTitle, T } from '@/ui/primitives';
 import { useHomeLayout, useUpdatedWidgets, WIDGET_TITLES, type WidgetId } from '@/features/homeLayout';
+import { ThinkingOrb } from '@/ui/orbs/ThinkingOrb';
 import { SIOrb } from '@/ui/SIOrb';
 import { Icon3D, innerBlock, LinkAction, Section, SubHeader } from '@/ui/section';
 
@@ -206,7 +207,7 @@ export default function HomeScreen() {
             </>
           ) : null}
           <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-            {sync.isPending || home.isRefetching ? <ActivityIndicator color={c.textSecondary} accessibilityLabel="Refreshing" /> : <IconButton icon={RefreshCw} label="Refresh your accounts" onPress={refresh} />}
+            {sync.isPending || home.isRefetching ? <ThinkingOrb state="connecting" size={36} label="Refreshing your accounts" /> : <IconButton icon={RefreshCw} label="Refresh your accounts" onPress={refresh} />}
           </View>
         </Row>
       ) : (

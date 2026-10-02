@@ -2,13 +2,13 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, CircleAlert, History, Mic, SquarePen, X } from 'lucide-react-native';
+import { ArrowUp, CircleAlert, History, Mic, Square, SquarePen, X } from 'lucide-react-native';
 import { greetingFor } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
 import { storage } from '@/lib/storage';
 import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
-import { BriefLine, Message, TypingDots, UPDATE_NUMBERS, useFreshMessages, UserBubble } from '@/features/SIMessages';
+import { BriefLine, Message, ThinkingRow, UPDATE_NUMBERS, useFreshMessages, UserBubble } from '@/features/SIMessages';
 import { PromptPills } from '@/features/PromptPills';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
@@ -18,6 +18,7 @@ import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useSoftShadow, use
 import { Icon3D, Section } from '@/ui/section';
 import { Button, IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
+import { ThinkingOrb } from '@/ui/orbs/ThinkingOrb';
 import { SIOrb } from '@/ui/SIOrb';
 import { Card, InSection, Press, Row, T } from '@/ui/primitives';
 
@@ -113,18 +114,29 @@ export default function SIScreen() {
   const greeting = greetingFor(new Date().toISOString());
   const first = me?.name?.split(' ')[0];
 
-  // Speech input: on the web use the browser's speech recognition; on phones the keyboard's dictation key.
+  // Speech input: on the web use the browser's speech recognition (a listening orb shows while it
+  // hears you; tap again to stop); on phones the keyboard's dictation key.
   const input = useRef<TextInput>(null);
+  const speech = useRef<SpeechRec | null>(null);
+  const [listening, setListening] = useState(false);
   const dictate = () => {
+    if (speech.current) return speech.current.stop();
     const W = globalThis as unknown as { webkitSpeechRecognition?: new () => SpeechRec; SpeechRecognition?: new () => SpeechRec };
     const Rec = W.SpeechRecognition ?? W.webkitSpeechRecognition;
     if (Platform.OS === 'web' && Rec) {
       const r = new Rec();
       r.lang = 'en-IN';
       r.onresult = (e) => setText(e.results[0]?.[0]?.transcript ?? '');
+      r.onend = () => {
+        speech.current = null;
+        setListening(false);
+      };
+      speech.current = r;
+      setListening(true);
       r.start();
     } else input.current?.focus();
   };
+  useEffect(() => () => speech.current?.abort(), []);
 
   const header = HEADER_H + insets.top;
   // Quick prompts sit in a row above the input for the whole conversation: after an answer they
@@ -284,7 +296,7 @@ export default function SIScreen() {
                       {pending ? (
                         <>
                           <UserBubble text={pending} />
-                          <TypingDots />
+                          <ThinkingRow question={pending} />
                         </>
                       ) : null}
                       {error ? (
@@ -353,11 +365,12 @@ export default function SIScreen() {
                   gap: space.sm,
                 }}
               >
+                {listening ? <ThinkingOrb state="listening" size={32} /> : null}
                 <TextInput
                   ref={input}
                   value={text}
                   onChangeText={setText}
-                  placeholder={setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…')}
+                  placeholder={listening ? 'Listening…' : (setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…'))}
                   placeholderTextColor={c.textSecondary}
                   accessibilityLabel="Ask SI a question"
                   returnKeyType="send"
@@ -367,12 +380,12 @@ export default function SIScreen() {
                   style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
                 />
                 <Press
-                  onPress={() => (text.trim() ? send(text) : dictate())}
+                  onPress={() => (text.trim() && !listening ? send(text) : dictate())}
                   accessibilityRole="button"
-                  accessibilityLabel={text.trim() ? 'Send' : 'Speak your question'}
+                  accessibilityLabel={listening ? 'Stop listening' : text.trim() ? 'Send' : 'Speak your question'}
                   style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  {text.trim() ? <ArrowUp size={18} color={c.primaryText} /> : <Mic size={18} color={c.primaryText} />}
+                  {listening ? <Square size={14} color={c.primaryText} fill={c.primaryText} /> : text.trim() ? <ArrowUp size={18} color={c.primaryText} /> : <Mic size={18} color={c.primaryText} />}
                 </Press>
               </GlassSurface>
             </View>
@@ -408,7 +421,11 @@ const SUGGEST_H = 46;
 interface SpeechRec {
   lang: string;
   onresult: (e: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void;
+  /** Fires when listening ends for any reason (finished, stopped, no speech, or an error). */
+  onend: () => void;
   start: () => void;
+  stop: () => void;
+  abort: () => void;
 }
 
 function SetupBubble({ l }: { l: SetupLine }) {

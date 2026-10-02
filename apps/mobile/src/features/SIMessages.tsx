@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { CircleAlert, CircleCheck, Info } from 'lucide-react-native';
-import type { BriefItem, SIMessageDTO } from '@finance-buddy/core';
+import { detectIntent, type BriefItem, type Intent, type SIMessageDTO } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { FadeIn } from '@/ui/layout';
+import { ThinkingOrb, type OrbState } from '@/ui/orbs/ThinkingOrb';
 import { Row, T } from '@/ui/primitives';
 
 /** Shared by the Super Intelligence tab and the chat panel on desktop Home. */
@@ -143,40 +144,40 @@ export function useFreshMessages(conversationId: string | undefined, messages: S
   };
 }
 
-/** Three dots that bounce while Super Intelligence works on an answer. */
-export function TypingDots() {
-  const { c, reduceMotion } = useTheme();
-  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
-  useEffect(() => {
-    if (reduceMotion) return;
-    const loops = dots.map((d, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 140),
-          Animated.timing(d, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
-          Animated.timing(d, { toValue: 0, duration: 260, easing: Easing.in(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
-          Animated.delay((2 - i) * 140 + 200),
-        ]),
-      ),
-    );
-    loops.forEach((l) => l.start());
-    return () => loops.forEach((l) => l.stop());
-  }, [reduceMotion]);
+/** Which orb and words show while Super Intelligence works on a question, by what the question is about. */
+const THINKING: Partial<Record<Intent, [OrbState, string]>> = {
+  BRIEF: ['weaving', 'Pulling your week together…'],
+  EXPLAIN_SPEND: ['searching', 'Searching your spending…'],
+  CATEGORY_SPEND: ['searching', 'Searching your spending…'],
+  COACH: ['searching', 'Looking for ways to save…'],
+  SUBSCRIPTIONS: ['searching', 'Finding your subscriptions…'],
+  UPCOMING: ['searching', 'Checking your upcoming payments…'],
+  AFFORD: ['solving', 'Checking if you can afford it…'],
+  INVEST_CAPACITY: ['solving', 'Working out what you can invest…'],
+  FORECAST: ['solving', 'Doing the maths…'],
+  GOALS: ['solving', 'Checking your goals…'],
+  LOANS: ['solving', 'Checking your loans…'],
+  SALARY_CYCLE: ['solving', 'Doing the maths…'],
+  COMPARE_MONTHS: ['weaving', 'Comparing your months…'],
+  NET_WORTH: ['weaving', 'Adding up your accounts…'],
+  BALANCE: ['weaving', 'Adding up your accounts…'],
+};
+
+/** Uses the same reading of the question that Super Intelligence answers from; anything else just "thinks". */
+export function thinkingFor(question: string): { state: OrbState; label: string } {
+  const [state, label] = THINKING[detectIntent(question, new Date().toISOString()).intent] ?? ['working', 'Thinking…'];
+  return { state, label };
+}
+
+/** Shown while Super Intelligence works on an answer: an orb that matches the question, and what it's doing. */
+export function ThinkingRow({ question }: { question: string }) {
+  const { state, label } = useMemo(() => thinkingFor(question), [question]);
   return (
-    <Row gap={5} style={{ height: 24, paddingHorizontal: 2 }} accessible accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
-      {dots.map((d, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: c.textSecondary,
-            opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
-            transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
-          }}
-        />
-      ))}
+    <Row gap={space.sm} style={{ minHeight: 40 }} accessible accessibilityLabel={`Super Intelligence: ${label}`} accessibilityLiveRegion="polite">
+      <ThinkingOrb state={state} size={40} />
+      <T v="small" tone="secondary">
+        {label}
+      </T>
     </Row>
   );
 }

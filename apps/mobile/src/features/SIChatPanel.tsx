@@ -13,7 +13,7 @@ import { ErrorState, Skeleton, useSoftShadow } from '@/ui/layout';
 import { Press, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
 import { PromptPills } from './PromptPills';
-import { BriefLine, Message, TypingDots, UPDATE_NUMBERS, useFreshMessages, UserBubble } from './SIMessages';
+import { BriefLine, Message, ThinkingRow, UPDATE_NUMBERS, useFreshMessages, UserBubble } from './SIMessages';
 
 /** Height of the conversation area; longer chats scroll inside it. */
 const CHAT_H = 210;
@@ -146,7 +146,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
             {pending ? (
               <>
                 <UserBubble text={pending} />
-                <TypingDots />
+                <ThinkingRow question={pending} />
               </>
             ) : null}
             {error ? (

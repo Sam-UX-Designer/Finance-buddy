@@ -164,10 +164,22 @@ export function useSetBudget() {
   });
 }
 
+/** Super Intelligence "thinks" for at least this long, so its thinking orb is seen before the answer types out. */
+const MIN_THINK_MS = 1500;
+
 export function useAsk() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ text, conversationId }: { text: string; conversationId?: string }) => api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text, conversationId } }),
+    mutationFn: async ({ text, conversationId }: { text: string; conversationId?: string }) => {
+      const started = Date.now();
+      try {
+        return await api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text, conversationId } });
+      } finally {
+        // Fast answers (and errors) wait out the rest; slower ones aren't held up at all.
+        const left = MIN_THINK_MS - (Date.now() - started);
+        if (left > 0) await new Promise((resolve) => setTimeout(resolve, left));
+      }
+    },
     onSuccess: (r) => {
       // Append to whichever cached view shows this chat.
       qc.setQueriesData<SIHomeDTO>({ queryKey: keys.si }, (old) =>

@@ -164,8 +164,16 @@ export function useSetBudget() {
   });
 }
 
-/** Super Intelligence "thinks" for at least this long, so its thinking orb is seen before the answer types out. */
-const MIN_THINK_MS = 1500;
+/**
+ * How long Super Intelligence "thinks" at least, so its thinking orb is seen before the answer types
+ * out: about 1.5 s for most questions, about 1 s for a few words, and longer for long questions
+ * (0.1 s more per word past 15), never over 4 s. A little variation keeps it from feeling mechanical.
+ */
+export function thinkingTime(question: string): number {
+  const words = question.trim().split(/\s+/).filter(Boolean).length;
+  const base = words <= 3 ? 1000 : words <= 15 ? 1500 : 1500 + (words - 15) * 100;
+  return Math.min(4000, base + Math.round((Math.random() - 0.5) * 300));
+}
 
 export function useAsk() {
   const qc = useQueryClient();
@@ -176,7 +184,7 @@ export function useAsk() {
         return await api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text, conversationId } });
       } finally {
         // Fast answers (and errors) wait out the rest; slower ones aren't held up at all.
-        const left = MIN_THINK_MS - (Date.now() - started);
+        const left = thinkingTime(text) - (Date.now() - started);
         if (left > 0) await new Promise((resolve) => setTimeout(resolve, left));
       }
     },

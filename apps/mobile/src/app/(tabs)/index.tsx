@@ -224,7 +224,7 @@ export default function HomeScreen() {
   if (wide) {
     // Desktop: everything from the phone Home in one column on the left, every transaction on the right.
     const available = contentWidth - WIDE_PAGE_X * 2 - space.xl;
-    const leftW = available < 900 ? Math.round(available / 2) : Math.max(420, Math.min(580, Math.round(available * 0.44)));
+    const leftW = available < 900 ? Math.round(available / 2) : Math.max(440, Math.min(620, Math.round(available * 0.47)));
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X }}>

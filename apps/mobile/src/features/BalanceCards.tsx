@@ -3,7 +3,7 @@ import { DeviceMotion } from 'expo-sensors';
 import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, RotateCw, type LucideIcon } from 'lucide-react-native';
+import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
 import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
@@ -51,8 +51,7 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const sweep = useSweep(!reduceMotion);
   const wide = useWide();
   // Phones: the carousel runs edge to edge and each page keeps the page margin on both sides, so a
-  // card never touches the screen edge while swiping. Desktop: one whole card fills the column
-  // (none is cut off at the edge), with arrow buttons because a mouse can't swipe.
+  // card never touches the screen edge while swiping. (Desktop shows every card at once, below.)
   const bleed = wide ? 0 : PAGE_X;
   const cardW = Math.max(0, width - bleed * 2);
   const pageW = width;
@@ -68,6 +67,52 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
     }
   };
   const goTo = (p: number) => scroller.current?.scrollTo({ x: p * pageW, animated: !reduceMotion });
+
+  if (wide) {
+    // Desktop has the room to show every card whole: the total on top, the banks two to a row
+    // underneath (an odd last bank gets the full width). Each card tilts and flips on its own.
+    const gap = space.md;
+    const half = Math.floor((width - gap) / 2);
+    const fullH = Math.max(176, Math.round(width / 2.1));
+    const halfH = Math.max(150, Math.round(half / 1.6));
+    return (
+      <View onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))} accessibilityLabel="Balance cards">
+        {width ? (
+          <View style={{ gap }}>
+            <DeskCard
+              width={width}
+              height={fullH}
+              label={hidden ? 'Total balance, hidden' : `Total balance ${formatINR(total)} across ${accounts.length} accounts`}
+              front={(t, flipped) => <TotalFront total={total} accounts={accounts} hidden={hidden} onToggleHidden={onToggleHidden} width={width} height={fullH} tilt={t} sweep={sweep} active={!flipped} />}
+              back={(t) => <TotalBack accounts={accounts} hidden={hidden} width={width} height={fullH} tilt={t} sweep={sweep} />}
+            />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+              {accounts.map((a, i) => {
+                const full = accounts.length % 2 === 1 && i === accounts.length - 1;
+                const w = full ? width : half;
+                const h = full ? fullH : halfH;
+                return (
+                  <DeskCard
+                    key={a.id}
+                    width={w}
+                    height={h}
+                    label={hidden ? `${a.fip.name}, balance hidden` : `${a.fip.name} ${a.typeLabel} ending ${last4(a.maskedNumber)}, ${formatINR(a.balance)}`}
+                    front={(t) => <BankFront a={a} hidden={hidden} width={w} height={h} tilt={t} sweep={sweep} />}
+                    back={() => <BankBack a={a} width={w} height={h} />}
+                  />
+                );
+              })}
+            </View>
+            <T v="caption" tone="tertiary" align="center">
+              Click a card to flip it
+            </T>
+          </View>
+        ) : (
+          <View style={{ height: 210 }} />
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={{ marginHorizontal: -bleed }} onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))}>
@@ -111,19 +156,15 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
       )}
       {pages > 1 ? (
         <View style={{ alignItems: 'center', marginTop: space.md, gap: 6 }}>
-          <Row gap={wide ? space.md : 6}>
-            {wide ? <PageArrow icon={ChevronLeft} label="Previous card" disabled={page === 0} onPress={() => goTo(page - 1)} /> : null}
-            <Row gap={6}>
-              {Array.from({ length: pages }, (_, i) => (
-                <Pressable key={i} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={i === 0 ? 'All accounts card' : `${accounts[i - 1]!.fip.name} card`} hitSlop={8}>
-                  <View style={{ width: i === page ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === page ? c.text : c.border }} />
-                </Pressable>
-              ))}
-            </Row>
-            {wide ? <PageArrow icon={ChevronRight} label="Next card" disabled={page === pages - 1} onPress={() => goTo(page + 1)} /> : null}
+          <Row gap={6}>
+            {Array.from({ length: pages }, (_, i) => (
+              <Pressable key={i} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={i === 0 ? 'All accounts card' : `${accounts[i - 1]!.fip.name} card`} hitSlop={8}>
+                <View style={{ width: i === page ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === page ? c.text : c.border }} />
+              </Pressable>
+            ))}
           </Row>
           <T v="caption" tone="tertiary">
-            {wide ? 'Arrows for each bank · Click a card to flip' : 'Swipe for each bank · Tap a card to flip'}
+            Swipe for each bank · Tap a card to flip
           </T>
         </View>
       ) : null}
@@ -131,23 +172,10 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   );
 }
 
-/** Desktop carousel arrow (mouse users can't swipe). */
-function PageArrow({ icon: Icon, label, disabled, onPress }: { icon: LucideIcon; label: string; disabled: boolean; onPress: () => void }) {
-  const { c } = useTheme();
-  const [hover, setHover] = useState(false);
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      onHoverIn={() => setHover(true)}
-      onHoverOut={() => setHover(false)}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: hover && !disabled ? c.surfacePressed : c.surface, opacity: disabled ? 0.35 : 1 }}
-    >
-      <Icon size={16} color={c.text} />
-    </Pressable>
-  );
+/** Desktop card with its own tilt, so hovering one card doesn't tilt the others. */
+function DeskCard({ width, height, label, front, back }: { width: number; height: number; label: string; front: (tilt: Tilt, flipped: boolean) => ReactNode; back: (tilt: Tilt) => ReactNode }) {
+  const tilt = useRef<Tilt>({ x: new Animated.Value(0), y: new Animated.Value(0) }).current;
+  return <FlipCard width={width} height={height} tilt={tilt} label={label} front={(flipped) => front(tilt, flipped)} back={() => back(tilt)} />;
 }
 
 // ── Card shell: tilt + flip ─────────────────────────────────────────────
@@ -268,9 +296,14 @@ function TotalBack({ accounts, hidden, width, height, tilt, sweep }: { accounts:
   );
 }
 
+/** Below this width a card uses smaller type and drops the chip (desktop grid cards). */
+const COMPACT_W = 320;
+
 function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; hidden: boolean; width: number; height: number; tilt: Tilt; sweep: Animated.Value }) {
+  const compact = width < COMPACT_W;
   return (
     <CardSurface
+      pad={compact ? 16 : 20}
       width={width}
       height={height}
       from={shade(a.fip.color, 0.18)}
@@ -280,24 +313,27 @@ function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; 
       glare={0.28}
       pattern={{ banks: [a.fip.id], ink: 'rgba(255,255,255,0.09)' }}
     >
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Row gap={10}>
-          <BankLogo fip={a.fip} size={30} />
-          <T v="bodySemibold" color="#FFFFFF">
+      <Row style={{ justifyContent: 'space-between', gap: 8 }}>
+        <Row gap={compact ? 8 : 10} style={{ flexShrink: 1 }}>
+          <BankLogo fip={a.fip} size={compact ? 24 : 30} />
+          <T v={compact ? 'smallMedium' : 'bodySemibold'} color="#FFFFFF" numberOfLines={1} style={{ flexShrink: 1 }}>
             {a.fip.shortName}
           </T>
         </Row>
-        <T v="caption" color="rgba(255,255,255,0.75)">
-          {a.typeLabel}
-        </T>
+        {/* The smallest cards leave the account type to the back, so the bank name never gets cut. */}
+        {width < 240 ? null : (
+          <T v="caption" color="rgba(255,255,255,0.75)" numberOfLines={1}>
+            {a.typeLabel}
+          </T>
+        )}
       </Row>
       <View style={{ flex: 1, justifyContent: 'center', gap: 10 }}>
-        <CardChip />
-        <Money value={a.balance} v="display" color="#FFFFFF" decimals={2} hidden={hidden} />
+        {compact ? null : <CardChip />}
+        <Money value={a.balance} v={compact ? 'title' : 'display'} color="#FFFFFF" decimals={2} hidden={hidden} />
       </View>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <T v="bodyMedium" color="#FFFFFF" style={{ letterSpacing: 2 }}>{`••••  ${last4(a.maskedNumber)}`}</T>
-        <T v="caption" color="rgba(255,255,255,0.75)">
+      <Row style={{ justifyContent: 'space-between', gap: 8 }}>
+        <T v={compact ? 'smallMedium' : 'bodyMedium'} color="#FFFFFF" style={{ letterSpacing: compact ? 1 : 2 }}>{`••••  ${last4(a.maskedNumber)}`}</T>
+        <T v="caption" color="rgba(255,255,255,0.75)" numberOfLines={1}>
           {a.lastSyncedAt ? `Updated ${formatTime(a.lastSyncedAt)}` : 'Not updated yet'}
         </T>
       </Row>
@@ -309,12 +345,12 @@ function BankBack({ a, width, height }: { a: HomeAccount; width: number; height:
   const rows: [string, string][] = [
     ['Account', a.typeLabel],
     ['Number', `•••• ${last4(a.maskedNumber)}`],
-    ['Last updated', a.lastSyncedAt ? `${formatDate(a.lastSyncedAt)}, ${formatTime(a.lastSyncedAt)}` : 'Not yet'],
+    [width < COMPACT_W ? 'Updated' : 'Last updated', a.lastSyncedAt ? `${formatDate(a.lastSyncedAt)}, ${formatTime(a.lastSyncedAt)}` : 'Not yet'],
   ];
   return (
-    <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: shade(a.fip.color, -0.35), padding: 20 }}>
+    <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: shade(a.fip.color, -0.35), padding: width < COMPACT_W ? 16 : 20 }}>
       <T v="smallMedium" color="rgba(255,255,255,0.75)">{`${a.fip.name}`}</T>
-      <View style={{ flex: 1, justifyContent: 'center', gap: 8 }}>
+      <View style={{ flex: 1, justifyContent: 'center', gap: width < COMPACT_W ? 4 : 8 }}>
         {rows.map(([k, v]) => (
           <Row key={k} style={{ justifyContent: 'space-between' }}>
             <T v="small" color="rgba(255,255,255,0.7)">
@@ -330,7 +366,7 @@ function BankBack({ a, width, height }: { a: HomeAccount; width: number; height:
         onPress={() => router.push({ pathname: '/(tabs)/activity', params: { accountId: a.id } })}
         accessibilityRole="button"
         accessibilityLabel={`See ${a.fip.shortName} transactions`}
-        style={{ height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}
+        style={{ height: width < COMPACT_W ? 34 : 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}
       >
         <T v="smallMedium" color={shade(a.fip.color, -0.35)}>
           See transactions
@@ -351,6 +387,7 @@ function CardSurface({
   sweep,
   glare,
   pattern,
+  pad = 20,
   children,
 }: {
   width: number;
@@ -363,6 +400,8 @@ function CardSurface({
   glare: number;
   /** Watermark: bank ids whose logos repeat in turn in one faint `ink` colour (null = the Finance Buddy mark). */
   pattern?: { banks: (string | null)[]; ink: string };
+  /** Inner padding (smaller on the compact desktop grid cards). */
+  pad?: number;
   children: ReactNode;
 }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
@@ -429,7 +468,7 @@ function CardSurface({
           )}
         </Animated.View>
       </View>
-      <View style={{ flex: 1, padding: 20 }}>{children}</View>
+      <View style={{ flex: 1, padding: pad }}>{children}</View>
     </View>
   );
 }

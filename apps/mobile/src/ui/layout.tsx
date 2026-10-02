@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -31,6 +31,45 @@ export const MAX_WIDTH = 560;
 export const WIDE_MAX_WIDTH = 760;
 /** Width of the left navigation sidebar in the wide web layout. */
 export const SIDEBAR_W = 248;
+/** Width it takes when collapsed to a strip of icons. */
+export const SIDEBAR_RAIL_W = 96;
+
+/** Desktop sidebar: whether it's collapsed to icons, and how much room it takes. */
+export interface SidebarState {
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+  width: number;
+}
+export const SidebarContext = createContext<SidebarState>({ collapsed: false, setCollapsed: () => undefined, width: SIDEBAR_W });
+export const useSidebar = () => useContext(SidebarContext);
+
+/**
+ * An on/off layout choice this browser remembers (like a hidden panel). Desktop web only, so it reads
+ * localStorage straight away and the page never flashes the other layout first.
+ */
+export function useRememberedFlag(key: string): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    if (Platform.OS !== 'web') return false;
+    try {
+      return globalThis.localStorage?.getItem(key) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const set = useCallback(
+    (next: boolean) => {
+      setOn(next);
+      if (Platform.OS !== 'web') return;
+      try {
+        globalThis.localStorage?.setItem(key, next ? '1' : '0');
+      } catch {
+        // Storage can be unavailable (private mode); the choice just isn't remembered.
+      }
+    },
+    [key],
+  );
+  return [on, set];
+}
 /** Side margin of the content area in the wide web layout. */
 export const WIDE_PAGE_X = 32;
 /** Widest the content area grows on very large monitors (tab screens fill the rest of the window). */
@@ -86,7 +125,8 @@ export function useSoftShadow(): ViewStyle | null {
 /** Width available to a screen next to the sidebar in the wide web layout (the window width elsewhere). */
 export function useContentWidth(): number {
   const { width } = useViewport();
-  return Math.min(useWide() ? width - SIDEBAR_W : width, WIDE_CONTENT_MAX);
+  const sidebar = useSidebar();
+  return Math.min(useWide() ? width - sidebar.width : width, WIDE_CONTENT_MAX);
 }
 
 /** Extra bottom space tab screens leave so content can scroll clear of the floating tab bar. */

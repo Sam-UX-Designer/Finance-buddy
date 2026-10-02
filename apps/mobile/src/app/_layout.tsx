@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApiRequestError } from '@/lib/api';
@@ -15,7 +15,7 @@ import { SessionProvider, useSession } from '@/lib/session';
 import { Sidebar } from '@/features/Navigation';
 import { NotificationsPanel } from '@/features/Notifications';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
-import { ScaledRoot, SIDEBAR_W, useWide } from '@/ui/layout';
+import { ScaledRoot, SIDEBAR_RAIL_W, SIDEBAR_W, SidebarContext, useRememberedFlag, useWide } from '@/ui/layout';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -45,31 +45,36 @@ function Navigator() {
   const closeNotifications = useCallback(() => setNotifications(false), []);
   // Going somewhere else (or leaving the desktop layout) puts the panel away.
   useEffect(() => setNotifications(false), [pathname, shell]);
+  // The sidebar can be collapsed to icons; the browser remembers the choice.
+  const [collapsed, setCollapsed] = useRememberedFlag('fb.sidebarCollapsed');
+  const sidebar = useMemo(() => ({ collapsed, setCollapsed, width: collapsed ? SIDEBAR_RAIL_W : SIDEBAR_W }), [collapsed, setCollapsed]);
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <View style={{ flex: 1, paddingLeft: shell ? SIDEBAR_W : 0 }}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: c.bg },
-            animation: reduceMotion ? 'none' : 'slide_from_right',
-            animationDuration: 250,
-          }}
-        >
-          <Stack.Screen name="index" options={{ animation: 'fade' }} />
-          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-          <Stack.Screen name="onboarding/success" options={{ animation: 'fade', gestureEnabled: false }} />
-          <Stack.Screen name="onboarding/sync" options={{ gestureEnabled: false }} />
-        </Stack>
+    <SidebarContext.Provider value={sidebar}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <View style={{ flex: 1, paddingLeft: shell ? sidebar.width : 0 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: c.bg },
+              animation: reduceMotion ? 'none' : 'slide_from_right',
+              animationDuration: 250,
+            }}
+          >
+            <Stack.Screen name="index" options={{ animation: 'fade' }} />
+            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="onboarding/success" options={{ animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="onboarding/sync" options={{ gestureEnabled: false }} />
+          </Stack>
+        </View>
+        {shell ? (
+          <>
+            <Sidebar notificationsOpen={notifications} onToggleNotifications={() => setNotifications((v) => !v)} />
+            <NotificationsPanel visible={notifications} onClose={closeNotifications} />
+          </>
+        ) : null}
       </View>
-      {shell ? (
-        <>
-          <Sidebar notificationsOpen={notifications} onToggleNotifications={() => setNotifications((v) => !v)} />
-          <NotificationsPanel visible={notifications} onClose={closeNotifications} />
-        </>
-      ) : null}
-    </View>
+    </SidebarContext.Provider>
   );
 }
 

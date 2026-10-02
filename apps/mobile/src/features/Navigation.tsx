@@ -2,13 +2,13 @@ import { Link, useSegments, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ChartNoAxesColumnIncreasing, ClipboardList, House, Lightbulb, ReceiptText, Settings, type LucideIcon } from 'lucide-react-native';
+import { Bell, ChartNoAxesColumnIncreasing, ClipboardList, House, Lightbulb, PanelLeftClose, PanelLeftOpen, ReceiptText, Settings, type LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
 import { useNotifications } from '@/lib/queries';
 import { radius, space } from '@/theme/tokens';
 import { GlassSurface } from '@/ui/glass';
-import { SIDEBAR_W } from '@/ui/layout';
+import { SIDEBAR_RAIL_W, SIDEBAR_W, useSidebar } from '@/ui/layout';
 import { T } from '@/ui/primitives';
 import { APP_LOGO } from '@/ui/SIOrb';
 
@@ -153,6 +153,7 @@ const ROW_GAP = 2;
  */
 export function Sidebar({ notificationsOpen, onToggleNotifications }: { notificationsOpen: boolean; onToggleNotifications: () => void }) {
   const { c, reduceMotion } = useTheme();
+  const { collapsed, setCollapsed } = useSidebar();
   const segments = useSegments() as string[];
   const unread = useNotifications().data?.notifications.filter((n) => !n.readAt).length ?? 0;
   const active = segments[0] === '(tabs)' ? (segments[1] ?? 'index') : segments[0];
@@ -160,11 +161,17 @@ export function Sidebar({ notificationsOpen, onToggleNotifications }: { notifica
   const y = useRef(new Animated.Value(Math.max(0, index) * (ROW_H + ROW_GAP))).current;
   const shown = useRef(new Animated.Value(index >= 0 ? 1 : 0)).current;
   const enter = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  // 1 = full sidebar, 0 = collapsed to icons. Width can't use the native driver, so this one runs in JS.
+  const open = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
+  const labels = open.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
 
   useEffect(() => {
     if (reduceMotion) return;
     Animated.timing(enter, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: ND }).start();
   }, []);
+  useEffect(() => {
+    Animated.timing(open, { toValue: collapsed ? 0 : 1, duration: reduceMotion ? 0 : 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [collapsed, reduceMotion]);
   useEffect(() => {
     if (index < 0) {
       Animated.timing(shown, { toValue: 0, duration: reduceMotion ? 0 : 140, useNativeDriver: ND }).start();
@@ -183,32 +190,126 @@ export function Sidebar({ notificationsOpen, onToggleNotifications }: { notifica
         left: 12,
         top: 12,
         bottom: 12,
-        width: SIDEBAR_W - 24,
         opacity: enter,
         transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
       }}
     >
-      <GlassSurface radius={radius.xl} style={{ flex: 1, paddingHorizontal: space.md, paddingVertical: space.lg }} role="navigation" aria-label="Main">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, marginBottom: space.xl }}>
-          <Image source={APP_LOGO} style={{ width: 32, height: 32 }} resizeMode="contain" accessibilityIgnoresInvertColors />
-          <T v="bodySemibold">Finance Buddy</T>
-        </View>
-        <View style={{ gap: ROW_GAP }}>
-          <Animated.View
-            pointerEvents="none"
-            style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ROW_H, borderRadius: radius.md, backgroundColor: c.surfaceMuted, opacity: shown, transform: [{ translateY: y }] }}
-          />
-          {TABS.map((t) => (
-            <SidebarItem key={t.name} icon={t.icon} label={t.label === 'SI' ? 'Super Intelligence' : t.label} active={active === t.name} href={t.href} />
-          ))}
-        </View>
-        <View style={{ flex: 1 }} />
-        <View style={{ gap: ROW_GAP, borderTopWidth: 1, borderTopColor: c.border, paddingTop: space.md }}>
-          <SidebarItem icon={Bell} label="Notifications" active={notificationsOpen} filled={notificationsOpen} badge={unread} onPress={onToggleNotifications} expanded={notificationsOpen} />
-          <SidebarItem icon={Settings} label="Settings" active={active === 'settings'} filled={active === 'settings'} href="/settings" />
-        </View>
-      </GlassSurface>
+      <Animated.View style={{ flex: 1, width: open.interpolate({ inputRange: [0, 1], outputRange: [SIDEBAR_RAIL_W - 24, SIDEBAR_W - 24] }) }}>
+        <GlassSurface radius={radius.xl} style={{ flex: 1, paddingHorizontal: space.md, paddingVertical: space.lg }} role="navigation" aria-label="Main">
+          <View style={{ height: 40, marginBottom: space.xl, justifyContent: 'center' }}>
+            {collapsed ? (
+              <ExpandButton onPress={() => setCollapsed(false)} />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 8, marginRight: -6 }}>
+                <Image source={APP_LOGO} style={{ width: 32, height: 32 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+                <Animated.View style={{ flex: 1, minWidth: 0, opacity: labels }}>
+                  <T v="bodySemibold" numberOfLines={1}>
+                    Finance Buddy
+                  </T>
+                </Animated.View>
+                <ToggleButton icon={PanelLeftClose} label="Collapse sidebar" onPress={() => setCollapsed(true)} />
+              </View>
+            )}
+          </View>
+          <View style={{ gap: ROW_GAP }}>
+            <Animated.View
+              pointerEvents="none"
+              style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ROW_H, borderRadius: radius.md, backgroundColor: c.surfaceMuted, opacity: shown, transform: [{ translateY: y }] }}
+            />
+            {TABS.map((t) => (
+              <SidebarItem key={t.name} icon={t.icon} label={t.label === 'SI' ? 'Super Intelligence' : t.label} active={active === t.name} href={t.href} collapsed={collapsed} labelOpacity={labels} />
+            ))}
+          </View>
+          <View style={{ flex: 1 }} />
+          <View style={{ gap: ROW_GAP, borderTopWidth: 1, borderTopColor: c.border, paddingTop: space.md }}>
+            <SidebarItem
+              icon={Bell}
+              label="Notifications"
+              active={notificationsOpen}
+              filled={notificationsOpen}
+              badge={unread}
+              onPress={onToggleNotifications}
+              expanded={notificationsOpen}
+              collapsed={collapsed}
+              labelOpacity={labels}
+            />
+            <SidebarItem icon={Settings} label="Settings" active={active === 'settings'} filled={active === 'settings'} href="/settings" collapsed={collapsed} labelOpacity={labels} />
+          </View>
+        </GlassSurface>
+      </Animated.View>
     </Animated.View>
+  );
+}
+
+/** Web: the browser's own tooltip, so icon-only controls still say what they are on hover. */
+function useTooltip(label: string | null) {
+  const ref = useRef<View>(null);
+  useEffect(() => {
+    const node = ref.current as unknown as { setAttribute?: (k: string, v: string) => void; removeAttribute?: (k: string) => void } | null;
+    if (Platform.OS !== 'web' || !node?.setAttribute) return;
+    if (label) node.setAttribute('title', label);
+    else node.removeAttribute?.('title');
+  }, [label]);
+  return ref;
+}
+
+/** Small icon button in the sidebar header (collapse). */
+function ToggleButton({ icon: Icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
+  const { c } = useTheme();
+  const [hover, setHover] = useState(false);
+  const ref = useTooltip(label);
+  return (
+    <Pressable
+      ref={ref}
+      onPress={onPress}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: hover ? c.surfacePressed : 'transparent' }}
+    >
+      <Icon size={18} color={hover ? c.text : c.textSecondary} strokeWidth={1.8} />
+    </Pressable>
+  );
+}
+
+/** Collapsed sidebar header: the logo, which turns into the expand button on hover or keyboard focus. */
+function ExpandButton({ onPress }: { onPress: () => void }) {
+  const { c } = useTheme();
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const ref = useTooltip('Expand sidebar');
+  const reveal = hover || focus;
+  return (
+    <Pressable
+      ref={ref}
+      onPress={onPress}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      onFocus={() => setFocus(keyboardInput)}
+      onBlur={() => setFocus(false)}
+      accessibilityRole="button"
+      accessibilityLabel="Expand sidebar"
+      style={{
+        width: 40,
+        height: 40,
+        alignSelf: 'center',
+        borderRadius: radius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: reveal ? c.surfacePressed : 'transparent',
+        borderWidth: 2,
+        borderColor: focus ? c.text : 'transparent',
+      }}
+    >
+      {/* Both stay mounted and cross-fade, so a quick click never lands on a picture that's being swapped out. */}
+      <View pointerEvents="none" style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+        <Image source={APP_LOGO} style={{ position: 'absolute', width: 32, height: 32, opacity: reveal ? 0 : 1 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+        <View style={{ opacity: reveal ? 1 : 0 }}>
+          <PanelLeftOpen size={19} color={c.text} strokeWidth={1.8} />
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -221,6 +322,8 @@ function SidebarItem({
   expanded,
   href,
   onPress,
+  collapsed,
+  labelOpacity,
 }: {
   icon: LucideIcon;
   label: string;
@@ -232,17 +335,22 @@ function SidebarItem({
   /** Navigation rows are real links (open in a new tab works); action rows take onPress. */
   href?: Href;
   onPress?: () => void;
+  /** Collapsed sidebar: icon only (the label shows as a tooltip) and the badge becomes a dot. */
+  collapsed: boolean;
+  labelOpacity: Animated.AnimatedInterpolation<number>;
 }) {
   const { c, reduceMotion } = useTheme();
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const lift = useRef(new Animated.Value(0)).current;
+  const ref = useTooltip(collapsed ? (badge ? `${label} (${badge} unread)` : label) : null);
   const hoverTo = (v: number) => {
     if (reduceMotion) return;
     Animated.spring(lift, { toValue: v, useNativeDriver: ND, stiffness: 400, damping: 22 }).start();
   };
   const row = (
     <Pressable
+      ref={ref}
       accessibilityRole={href ? 'link' : 'button'}
       accessibilityLabel={badge ? `${label}, ${badge} unread` : label}
       accessibilityState={href ? { selected: !!active } : { expanded }}
@@ -265,6 +373,7 @@ function SidebarItem({
         height: ROW_H,
         paddingHorizontal: 12,
         borderRadius: radius.md,
+        overflow: 'hidden',
         backgroundColor: filled ? c.surfaceMuted : hover && !active ? c.surfacePressed : 'transparent',
         borderWidth: 2,
         borderColor: focus ? c.text : 'transparent',
@@ -274,17 +383,22 @@ function SidebarItem({
         style={{ transform: [{ scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }, { translateX: lift.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }) }] }}
       >
         <Icon size={19} color={active ? c.text : c.textSecondary} strokeWidth={active ? 2.2 : 1.8} />
+        {collapsed && badge ? (
+          <View style={{ position: 'absolute', top: -3, right: -4, width: 9, height: 9, borderRadius: 5, backgroundColor: c.negative, borderWidth: 1.5, borderColor: c.surface }} />
+        ) : null}
       </Animated.View>
-      <T v={active ? 'bodySemibold' : 'body'} color={active ? c.text : c.textSecondary} style={{ flex: 1 }} numberOfLines={1}>
-        {label}
-      </T>
-      {badge ? (
-        <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: c.negative, alignItems: 'center', justifyContent: 'center' }}>
-          <T v="caption" color="#FFFFFF" style={{ fontFamily: 'Inter_600SemiBold' }}>
-            {badge > 9 ? '9+' : String(badge)}
-          </T>
-        </View>
-      ) : null}
+      <Animated.View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: labelOpacity }}>
+        <T v={active ? 'bodySemibold' : 'body'} color={active ? c.text : c.textSecondary} style={{ flex: 1 }} numberOfLines={1}>
+          {label}
+        </T>
+        {badge && !collapsed ? (
+          <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: c.negative, alignItems: 'center', justifyContent: 'center' }}>
+            <T v="caption" color="#FFFFFF" style={{ fontFamily: 'Inter_600SemiBold' }}>
+              {badge > 9 ? '9+' : String(badge)}
+            </T>
+          </View>
+        ) : null}
+      </Animated.View>
     </Pressable>
   );
   return href ? (

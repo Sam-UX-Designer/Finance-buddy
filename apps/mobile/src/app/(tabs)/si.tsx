@@ -2,7 +2,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, CircleAlert, History, Mic, Square, SquarePen, X } from 'lucide-react-native';
+import { ArrowUp, CircleAlert, History, Mic, PanelLeftClose, PanelLeftOpen, Square, SquarePen, X } from 'lucide-react-native';
 import { greetingFor } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
@@ -14,7 +14,7 @@ import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
-import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useSoftShadow, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
+import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useRememberedFlag, useSoftShadow, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
 import { Icon3D, Section } from '@/ui/section';
 import { Button, IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
@@ -43,6 +43,8 @@ export default function SIScreen() {
   const handledQ = useRef<string | null>(null);
   const newChat = useNewChat();
   const wide = useWide();
+  // Desktop: the past-chats panel can be hidden for a wider chat; the browser remembers the choice.
+  const [chatsHidden, setChatsHidden] = useRememberedFlag('fb.chatsHidden');
   const shadow = useSoftShadow();
   const tabInset = useTabBarInset();
   // Desktop: a little wider than other pages, but lines still short enough to read comfortably.
@@ -163,9 +165,16 @@ export default function SIScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Desktop: past chats stay in view on the left, like a mail or chat app. */}
-        {wide ? (
+        {wide && !chatsHidden ? (
           <View style={{ width: HISTORY_W, paddingLeft: WIDE_PAGE_X, paddingVertical: space.lg }} role="navigation" aria-label="Chat history">
-            <Section fill icon={<Icon3D emoji="💡" size={36} />} title="Chats" subtitle="Your past conversations" style={{ paddingHorizontal: space.md }}>
+            <Section
+              fill
+              icon={<Icon3D emoji="💡" size={36} />}
+              title="Chats"
+              subtitle="Your past conversations"
+              right={<IconButton icon={PanelLeftClose} label="Hide chats" size={19} tint={c.textSecondary} onPress={() => setChatsHidden(true)} style={{ width: 32, height: 32 }} />}
+              style={{ paddingHorizontal: space.md }}
+            >
               <ScrollView contentContainerStyle={{ paddingBottom: space.lg }}>
                 <ChatHistoryList
                   currentId={si.data?.conversationId}
@@ -188,7 +197,7 @@ export default function SIScreen() {
                   {
                     flex: 1,
                     marginVertical: space.lg,
-                    marginLeft: space.xl,
+                    marginLeft: chatsHidden ? WIDE_PAGE_X : space.xl,
                     marginRight: WIDE_PAGE_X,
                     backgroundColor: c.surface,
                     borderRadius: radius.xl,
@@ -317,6 +326,9 @@ export default function SIScreen() {
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
               <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
                 <Row gap={space.md} style={{ height: HEADER_H, width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
+                  {wide && chatsHidden ? (
+                    <IconButton icon={PanelLeftOpen} label="Show chats" size={20} tint={c.textSecondary} onPress={() => setChatsHidden(false)} style={{ marginLeft: -space.sm }} />
+                  ) : null}
                   <SIOrb size={38} active={!!pending} />
                   <View style={{ flex: 1 }}>
                     <T v="bodySemibold" accessibilityRole="header">

@@ -9,7 +9,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { IconButton } from '@/ui/controls';
 import { IconTile } from '@/ui/display';
-import { EmptyState, ErrorState, LoadingState, SIDEBAR_W } from '@/ui/layout';
+import { EmptyState, ErrorState, LoadingState, useSidebar } from '@/ui/layout';
 import { Divider, Press, Row, T } from '@/ui/primitives';
 
 const ND = Platform.OS !== 'web';
@@ -83,6 +83,7 @@ export function NotificationList({ onNavigate }: { onNavigate?: () => void }) {
  */
 export function NotificationsPanel({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { c, scheme, reduceMotion } = useTheme();
+  const sidebarW = useSidebar().width;
   const [mounted, setMounted] = useState(visible);
   const a = useRef(new Animated.Value(0)).current;
 
@@ -111,7 +112,7 @@ export function NotificationsPanel({ visible, onClose }: { visible: boolean; onC
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* A light dim over the screen (not the sidebar); clicking it closes the panel. */}
-      <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, right: 0, left: SIDEBAR_W, backgroundColor: scheme === 'dark' ? 'rgba(0,0,0,0.45)' : 'rgba(10,10,11,0.14)', opacity: a }}>
+      <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, right: 0, left: sidebarW, backgroundColor: scheme === 'dark' ? 'rgba(0,0,0,0.45)' : 'rgba(10,10,11,0.14)', opacity: a }}>
         <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close notifications" />
       </Animated.View>
       <Animated.View
@@ -121,7 +122,7 @@ export function NotificationsPanel({ visible, onClose }: { visible: boolean; onC
           position: 'absolute',
           top: 12,
           bottom: 12,
-          left: SIDEBAR_W - 4,
+          left: sidebarW - 4,
           width: PANEL_W,
           opacity: a,
           transform: [{ translateX: a.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) }],

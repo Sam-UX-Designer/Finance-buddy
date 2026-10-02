@@ -26,7 +26,8 @@ import type {
   UpcomingPayment,
   WealthDTO,
 } from '@finance-buddy/core';
-import { api } from './api';
+import { MAX_QUESTION_LENGTH } from '@finance-buddy/core';
+import { api, ApiRequestError } from './api';
 
 export const keys = {
   home: ['home'] as const,
@@ -179,6 +180,9 @@ export function useAsk() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ text, conversationId }: { text: string; conversationId?: string }) => {
+      if (text.length > MAX_QUESTION_LENGTH) {
+        throw new ApiRequestError(400, 'TOO_LONG', `That's too long to send in one go (over ${MAX_QUESTION_LENGTH.toLocaleString('en-IN')} characters). Try splitting it into smaller questions.`);
+      }
       const started = Date.now();
       try {
         return await api<SIAskResponse>('/v1/si/ask', { method: 'POST', body: { text, conversationId } });

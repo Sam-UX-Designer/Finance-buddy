@@ -246,11 +246,11 @@ describe('end-to-end onboarding and product flow', () => {
     expect((await t.call('GET', '/v1/me')).json.name).toBe('Sammy');
   });
 
-  it('takes long questions up to the shared limit', async () => {
+  it('takes very long questions, up to the safety ceiling', async () => {
     const t = await setup();
     await signIn(t, '9012345678');
     await onboard(t);
-    const long = `Can I afford a family trip to Goa? ${'We also want to plan for school fees and a new phone. '.repeat(80)}`.slice(0, MAX_QUESTION_LENGTH);
+    const long = `Can I afford a family trip to Goa? ${'We also want to plan for school fees and a new phone. '.repeat(2000)}`.slice(0, MAX_QUESTION_LENGTH);
     expect(long.length).toBe(MAX_QUESTION_LENGTH);
     expect((await t.call('POST', '/v1/si/ask', { text: long })).status).toBe(200);
     expect((await t.call('POST', '/v1/si/ask', { text: 'x'.repeat(MAX_QUESTION_LENGTH + 1) })).status).toBe(400);

@@ -49,6 +49,8 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
       await ask.mutateAsync({ text: value, conversationId: si.data?.conversationId });
     } catch (e) {
       setError(errorMessage(e));
+      // Nothing is lost: the question goes back in the box (unless something new was typed meanwhile).
+      setText((t) => t || value);
     } finally {
       setPending(null);
     }

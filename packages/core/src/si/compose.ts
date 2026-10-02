@@ -57,8 +57,11 @@ export function planFor(d: DetectedIntent, nowISO: string): Step[] {
   }
 }
 
-/** Longest question Super Intelligence takes, in characters (the app's question box and the API share it). */
-export const MAX_QUESTION_LENGTH = 4000;
+/**
+ * The question box has no limit. This is only the server's safety ceiling (about 40 pages of text),
+ * so nobody can send enormous messages to slow it down; the app explains it if it's ever reached.
+ */
+export const MAX_QUESTION_LENGTH = 100_000;
 
 export const DEFAULT_SUGGESTIONS = [
   'Why did I spend more this month?',

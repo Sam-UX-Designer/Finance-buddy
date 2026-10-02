@@ -90,6 +90,8 @@ export default function SIScreen() {
       await ask.mutateAsync({ text: question, conversationId: si.data?.conversationId });
     } catch (e) {
       setError(errorMessage(e));
+      // Nothing is lost: the question goes back in the box (unless something new was typed meanwhile).
+      setText((t) => t || question);
     } finally {
       setPending(null);
     }

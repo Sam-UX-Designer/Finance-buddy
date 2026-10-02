@@ -3,18 +3,7 @@ import { useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { View } from 'react-native';
 import { Plus, SlidersHorizontal } from 'lucide-react-native';
-import {
-  category,
-  formatDate,
-  formatINR,
-  formatMonthKey,
-  istParts,
-  monthName,
-  parseRupeeInput,
-  type BudgetDTO,
-  type CategoryId,
-  type GoalDTO,
-} from '@finance-buddy/core';
+import { category, formatDate, formatINR, formatMonthKey, istParts, monthName, parseRupeeInput, type BudgetDTO, type CategoryId, type GoalDTO } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useBudgets, useForecast, usePlan, useSetBudget } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -22,7 +11,7 @@ import { radius, space } from '@/theme/tokens';
 import { LineChart } from '@/charts/Charts';
 import { Button, Chip, IconButton, Segmented, TextField } from '@/ui/controls';
 import { EmojiAvatar, ListRow, Pill } from '@/ui/display';
-import { Banner, EmptyState, ErrorState, FadeIn, LoadingState, Screen, Sheet } from '@/ui/layout';
+import { Banner, EmptyState, ErrorState, FadeIn, LoadingState, Screen, Sheet, useContentWidth, useWide, WIDE_PAGE_X } from '@/ui/layout';
 import { Card, Divider, Press, ProgressBar, Row, SectionTitle, T } from '@/ui/primitives';
 
 type Tab = 'goals' | 'forecast' | 'budget';
@@ -34,6 +23,21 @@ export default function PlanScreen() {
   const forecast = useForecast();
   const budgets = useBudgets();
   const refreshing = plan.isRefetching || forecast.isRefetching || budgets.isRefetching;
+  const wide = useWide();
+  const pageWidth = useContentWidth();
+  // Desktop: all three side by side when there's room, otherwise goals beside forecast and budget.
+  const three = pageWidth - WIDE_PAGE_X * 2 >= 1000;
+  const column = (title: string, body: React.ReactNode) => (
+    <View key={title}>
+      <T v="section" accessibilityRole="header" style={{ marginBottom: space.md }}>
+        {title}
+      </T>
+      {body}
+    </View>
+  );
+  const goals = column('Goals', <Goals plan={plan} />);
+  const fc = column('Forecast', <Forecast q={forecast} />);
+  const budget = column('Budget', <Budgets q={budgets} />);
   return (
     <Screen
       refreshing={refreshing}
@@ -44,19 +48,41 @@ export default function PlanScreen() {
       }}
       title="Plan"
       titleRight={<IconButton icon={SlidersHorizontal} label="Forecast assumptions" onPress={() => router.push('/assumptions')} />}
+      maxWidth={wide ? pageWidth : undefined}
+      contentStyle={wide ? { paddingHorizontal: WIDE_PAGE_X } : undefined}
     >
-      <Segmented
-        options={[
-          { key: 'goals', label: 'Goals' },
-          { key: 'forecast', label: 'Forecast' },
-          { key: 'budget', label: 'Budget' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
-      <View style={{ marginTop: space.xl }}>
-        {tab === 'goals' ? <Goals plan={plan} /> : tab === 'forecast' ? <Forecast q={forecast} /> : <Budgets q={budgets} />}
-      </View>
+      {wide ? (
+        <Row gap={space.xl} style={{ alignItems: 'flex-start', marginTop: space.sm }}>
+          {three ? (
+            [goals, fc, budget].map((col, i) => (
+              <View key={i} style={{ flex: 1, minWidth: 0 }}>
+                {col}
+              </View>
+            ))
+          ) : (
+            <>
+              <View style={{ flex: 1, minWidth: 0 }}>{goals}</View>
+              <View style={{ flex: 1, minWidth: 0, gap: space.xxl }}>
+                {fc}
+                {budget}
+              </View>
+            </>
+          )}
+        </Row>
+      ) : (
+        <>
+          <Segmented
+            options={[
+              { key: 'goals', label: 'Goals' },
+              { key: 'forecast', label: 'Forecast' },
+              { key: 'budget', label: 'Budget' },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+          <View style={{ marginTop: space.xl }}>{tab === 'goals' ? <Goals plan={plan} /> : tab === 'forecast' ? <Forecast q={forecast} /> : <Budgets q={budgets} />}</View>
+        </>
+      )}
     </Screen>
   );
 }
@@ -82,7 +108,12 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
           {d.goals.map((g, i) => (
             <View key={g.id}>
               {i > 0 ? <Divider inset={60} /> : null}
-              <Press onPress={() => router.push({ pathname: '/goal/[id]', params: { id: g.id } })} accessibilityRole="button" accessibilityLabel={`${g.name}, ${g.projection.progressPct}% complete`} scaleTo={0.99}>
+              <Press
+                onPress={() => router.push({ pathname: '/goal/[id]', params: { id: g.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={`${g.name}, ${g.projection.progressPct}% complete`}
+                scaleTo={0.99}
+              >
                 <Row gap={space.md} style={{ paddingVertical: space.md }}>
                   <EmojiAvatar emoji={g.emoji} size={48} categoryId="family" />
                   <View style={{ flex: 1, gap: 6 }}>
@@ -123,7 +154,12 @@ function Goals({ plan }: { plan: ReturnType<typeof usePlan> }) {
           {p.changePct != null ? <Pill tone={p.changePct >= 0 ? 'positive' : 'negative'}>{`${p.changePct >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(p.changePct))}%`}</Pill> : null}
         </Row>
         <View style={{ marginTop: space.md }}>
-          <LineChart values={p.points.map((x) => x.value / 100)} height={100} showDots accessibilityLabel={`Projected net worth rising from ${formatINR(p.start, { decimals: 0 })} to ${formatINR(p.end, { decimals: 0 })}`} />
+          <LineChart
+            values={p.points.map((x) => x.value / 100)}
+            height={100}
+            showDots
+            accessibilityLabel={`Projected net worth rising from ${formatINR(p.start, { decimals: 0 })} to ${formatINR(p.end, { decimals: 0 })}`}
+          />
         </View>
         <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
           {`Assumes ${formatINR(p.monthlySavings, { decimals: 0 })}/month saved, ${formatINR(p.monthlySip, { decimals: 0 })}/month in SIPs at ${p.assumptions.mfReturnPct}% a year, EPF at ${p.assumptions.epfRatePct}%. `}
@@ -167,7 +203,13 @@ function Forecast({ q }: { q: ReturnType<typeof useForecast> }) {
           {formatINR(f.end, { decimals: 0 })}
         </T>
         <View style={{ marginTop: space.md }}>
-          <LineChart values={f.points.map((p) => p.balance / 100)} baseline={d.safetyBuffer / 100} color={c.info} height={110} accessibilityLabel={`Balance forecast from ${formatINR(f.start, { decimals: 0 })} to ${formatINR(f.end, { decimals: 0 })}`} />
+          <LineChart
+            values={f.points.map((p) => p.balance / 100)}
+            baseline={d.safetyBuffer / 100}
+            color={c.info}
+            height={110}
+            accessibilityLabel={`Balance forecast from ${formatINR(f.start, { decimals: 0 })} to ${formatINR(f.end, { decimals: 0 })}`}
+          />
         </View>
         <Row gap={space.sm} style={{ marginTop: space.sm }}>
           <View style={{ width: 14, height: 0, borderTopWidth: 1, borderStyle: 'dashed', borderColor: c.warning }} />
@@ -175,7 +217,11 @@ function Forecast({ q }: { q: ReturnType<typeof useForecast> }) {
         </Row>
         {f.dipsBelowBuffer ? (
           <View style={{ marginTop: space.md }}>
-            <Banner tone="warning" title={`May dip to ${formatINR(f.lowest.balance, { decimals: 0 })} around ${formatDate(f.lowest.date)}`} body="That's below your safety buffer. Consider moving a planned expense." />
+            <Banner
+              tone="warning"
+              title={`May dip to ${formatINR(f.lowest.balance, { decimals: 0 })} around ${formatDate(f.lowest.date)}`}
+              body="That's below your safety buffer. Consider moving a planned expense."
+            />
           </View>
         ) : null}
       </Card>
@@ -197,7 +243,12 @@ function Forecast({ q }: { q: ReturnType<typeof useForecast> }) {
           {f.obligationItems.map((u, i) => (
             <View key={`${u.seriesKey}${u.dueDateKey}`}>
               {i > 0 ? <Divider /> : null}
-              <ListRow left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} merchantKey={u.seriesKey.split('|')[0]} size={36} />} title={u.merchantName} subtitle={formatDate(u.dueDate)} right={formatINR(u.amount, { decimals: 0 })} />
+              <ListRow
+                left={<EmojiAvatar emoji={category(u.categoryId).emoji} categoryId={u.categoryId} merchantKey={u.seriesKey.split('|')[0]} size={36} />}
+                title={u.merchantName}
+                subtitle={formatDate(u.dueDate)}
+                right={formatINR(u.amount, { decimals: 0 })}
+              />
             </View>
           ))}
         </View>
@@ -291,7 +342,19 @@ function Budgets({ q }: { q: ReturnType<typeof useBudgets> }) {
         }
       >
         <View style={{ gap: space.md, borderRadius: radius.md }}>
-          <TextField label="Monthly limit" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="5000" prefix={<T v="bodyMedium" tone="secondary">₹</T>} autoFocus />
+          <TextField
+            label="Monthly limit"
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            placeholder="5000"
+            prefix={
+              <T v="bodyMedium" tone="secondary">
+                ₹
+              </T>
+            }
+            autoFocus
+          />
           {error ? <Banner tone="negative" title={error} /> : null}
         </View>
       </Sheet>

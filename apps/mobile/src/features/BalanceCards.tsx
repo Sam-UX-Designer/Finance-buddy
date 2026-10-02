@@ -3,7 +3,7 @@ import { DeviceMotion } from 'expo-sensors';
 import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, RotateCw, type LucideIcon } from 'lucide-react-native';
 import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
@@ -22,8 +22,6 @@ const ND = Platform.OS !== 'web';
 const WEB = Platform.OS === 'web';
 const RATIO = 1.85; // a little shorter than a real bank card, so more of Home fits on screen
 const RADIUS = 22;
-/** Largest card width (wide screens show several cards side by side). */
-const MAX_CARD_W = 420;
 const clamp = (v: number) => Math.max(-1, Math.min(1, v));
 const last4 = (masked: string) => masked.slice(-4);
 
@@ -53,10 +51,11 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   const sweep = useSweep(!reduceMotion);
   const wide = useWide();
   // Phones: the carousel runs edge to edge and each page keeps the page margin on both sides, so a
-  // card never touches the screen edge while swiping. Wide screens: real card size, side by side.
+  // card never touches the screen edge while swiping. Desktop: one whole card fills the column
+  // (none is cut off at the edge), with arrow buttons because a mouse can't swipe.
   const bleed = wide ? 0 : PAGE_X;
-  const cardW = wide ? Math.min(width, MAX_CARD_W) : Math.max(0, width - bleed * 2);
-  const pageW = wide ? (cardW < width ? cardW + space.lg : cardW) : width;
+  const cardW = Math.max(0, width - bleed * 2);
+  const pageW = width;
   const height = Math.max(176, Math.round(cardW / RATIO));
   const pages = 1 + accounts.length;
 
@@ -112,19 +111,42 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
       )}
       {pages > 1 ? (
         <View style={{ alignItems: 'center', marginTop: space.md, gap: 6 }}>
-          <Row gap={6}>
-            {Array.from({ length: pages }, (_, i) => (
-              <Pressable key={i} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={i === 0 ? 'All accounts card' : `${accounts[i - 1]!.fip.name} card`} hitSlop={8}>
-                <View style={{ width: i === page ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === page ? c.text : c.border }} />
-              </Pressable>
-            ))}
+          <Row gap={wide ? space.md : 6}>
+            {wide ? <PageArrow icon={ChevronLeft} label="Previous card" disabled={page === 0} onPress={() => goTo(page - 1)} /> : null}
+            <Row gap={6}>
+              {Array.from({ length: pages }, (_, i) => (
+                <Pressable key={i} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={i === 0 ? 'All accounts card' : `${accounts[i - 1]!.fip.name} card`} hitSlop={8}>
+                  <View style={{ width: i === page ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === page ? c.text : c.border }} />
+                </Pressable>
+              ))}
+            </Row>
+            {wide ? <PageArrow icon={ChevronRight} label="Next card" disabled={page === pages - 1} onPress={() => goTo(page + 1)} /> : null}
           </Row>
           <T v="caption" tone="tertiary">
-            Swipe for each bank · Tap a card to flip
+            {wide ? 'Arrows for each bank · Click a card to flip' : 'Swipe for each bank · Tap a card to flip'}
           </T>
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Desktop carousel arrow (mouse users can't swipe). */
+function PageArrow({ icon: Icon, label, disabled, onPress }: { icon: LucideIcon; label: string; disabled: boolean; onPress: () => void }) {
+  const { c } = useTheme();
+  const [hover, setHover] = useState(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: hover && !disabled ? c.surfacePressed : c.surface, opacity: disabled ? 0.35 : 1 }}
+    >
+      <Icon size={16} color={c.text} />
+    </Pressable>
   );
 }
 

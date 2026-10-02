@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Platform, Pressable, View } from 'react-native';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, ChevronDown, ChevronUp, CircleUserRound, EyeOff, Plus, SlidersHorizontal, TrendingUp, type LucideIcon } from 'lucide-react-native';
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, ChevronDown, ChevronUp, CircleUserRound, EyeOff, Plus, RefreshCw, SlidersHorizontal, TrendingUp, type LucideIcon } from 'lucide-react-native';
 import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
 import { haptics } from '@/lib/haptics';
 import { useHome, useSync } from '@/lib/queries';
@@ -9,10 +9,11 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { BalanceCards } from '@/features/BalanceCards';
 import { TxnRow } from '@/features/TxnRow';
+import { TransactionsPanel } from '@/features/TransactionsPanel';
 import { SendSheet } from '@/features/SendSheet';
 import { Button, IconButton, Toggle } from '@/ui/controls';
 import { EmojiAvatar, IconTile, Money } from '@/ui/display';
-import { Banner, ErrorState, FadeIn, PAGE_X, Screen, Skeleton, useTabBarInset, useWide } from '@/ui/layout';
+import { Banner, ErrorState, FadeIn, PAGE_X, Screen, Skeleton, useContentWidth, useTabBarInset, useWide, WIDE_PAGE_X } from '@/ui/layout';
 import { GlassSurface } from '@/ui/glass';
 import { Card, LongPressContext, Press, Row, SectionTitle, T } from '@/ui/primitives';
 import { useHomeLayout, useUpdatedWidgets, WIDGET_TITLES, type WidgetId } from '@/features/homeLayout';
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const [editing, setEditing] = useState(false);
   const d = home.data;
   const wide = useWide();
+  const contentWidth = useContentWidth();
   const tabInset = useTabBarInset();
   const { layout, move, setHidden: setCardHidden, setSmart, reset } = useHomeLayout();
   const updated = useUpdatedWidgets(d);
@@ -163,7 +165,7 @@ export default function HomeScreen() {
   );
 
   const editBar = editing ? (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: (wide ? space.lg : tabInset) + space.sm, alignItems: 'center', paddingHorizontal: PAGE_X }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: (wide ? space.lg : tabInset) + space.sm, alignItems: 'center', paddingHorizontal: wide ? 0 : PAGE_X }}>
       <GlassSurface radius={28} style={{ width: '100%', maxWidth: 440, flexDirection: 'row', alignItems: 'center', paddingLeft: space.lg, paddingRight: 6, height: 56, gap: space.md }}>
         <T v="small" style={{ flex: 1 }} numberOfLines={2}>
           Show updated cards first
@@ -174,60 +176,78 @@ export default function HomeScreen() {
     </View>
   ) : null;
 
-  return (
-    <Screen
-      refreshing={home.isRefetching || sync.isPending}
-      onRefresh={refresh}
-      maxWidth={wide ? 1120 : undefined}
-      compactTitle={d ? `${d.greeting}, ${d.name ?? 'there'}` : 'Home'}
-      overlay={editBar}
-    >
-      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: space.lg }}>
-        <Row gap={space.md} style={{ flexShrink: 1 }}>
-          {/* The mascot is Super Intelligence: it greets you, and a tap opens it. */}
-          <Press onPress={() => router.push('/(tabs)/si')} accessibilityRole="button" accessibilityLabel="Open Super Intelligence" scaleTo={0.92} hitSlop={6}>
-            <SIOrb size={54} />
-          </Press>
-          <View style={{ flexShrink: 1 }}>
-            <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
-              {d ? `${d.greeting},` : ' '}
-            </T>
-            <T v="title" style={{ fontSize: 26, lineHeight: 32 }} numberOfLines={1}>
-              {d ? (d.name ?? 'there') : ' '}
-            </T>
-          </View>
-        </Row>
-        <Row style={{ marginRight: -8, display: wide ? 'none' : 'flex' }}>
+  const greetingRow = (
+    <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: space.lg }}>
+      <Row gap={space.md} style={{ flexShrink: 1 }}>
+        {/* The mascot is Super Intelligence: it greets you, and a tap opens it. */}
+        <Press onPress={() => router.push('/(tabs)/si')} accessibilityRole="button" accessibilityLabel="Open Super Intelligence" scaleTo={0.92} hitSlop={6}>
+          <SIOrb size={54} />
+        </Press>
+        <View style={{ flexShrink: 1 }}>
+          <T v="subtitle" style={{ fontFamily: 'Inter_400Regular', fontSize: 20, lineHeight: 26 }}>
+            {d ? `${d.greeting},` : ' '}
+          </T>
+          <T v="title" style={{ fontSize: 26, lineHeight: 32 }} numberOfLines={1}>
+            {d ? (d.name ?? 'there') : ' '}
+          </T>
+        </View>
+      </Row>
+      {wide ? (
+        // Desktop has no pull-to-refresh, so refreshing is a button. Notifications and settings live in the sidebar.
+        <View style={{ width: 40, height: 40, marginRight: -8, alignItems: 'center', justifyContent: 'center' }}>
+          {sync.isPending || home.isRefetching ? <ActivityIndicator color={c.textSecondary} accessibilityLabel="Refreshing" /> : <IconButton icon={RefreshCw} label="Refresh your accounts" onPress={refresh} />}
+        </View>
+      ) : (
+        <Row style={{ marginRight: -8 }}>
           <IconButton icon={Bell} label={d?.unreadNotifications ? `Notifications, ${d.unreadNotifications} unread` : 'Notifications'} dot={!!d?.unreadNotifications} onPress={() => router.push('/notifications')} />
           <IconButton icon={CircleUserRound} label="Profile and settings" onPress={() => router.push('/settings')} />
         </Row>
-      </Row>
-
-      {home.error && !d ? (
-        <ErrorState error={home.error} onRetry={() => home.refetch()} />
-      ) : !d ? (
-        <HomeSkeleton />
-      ) : (
-        <View>
-          <SyncNotice d={d} />
-          {wide ? (
-            <Row gap={space.xxl} style={{ alignItems: 'flex-start' }}>
-              <View style={{ flex: 1.15 }}>
-                <FadeIn>{balanceBlock}</FadeIn>
-                {ordered.map((id, i) => (i % 2 === 1 ? widget(id, i) : null))}
-              </View>
-              <View style={{ flex: 1 }}>{ordered.map((id, i) => (i % 2 === 0 ? widget(id, i) : null))}</View>
-            </Row>
-          ) : (
-            <>
-              <FadeIn>{balanceBlock}</FadeIn>
-              {ordered.map(widget)}
-            </>
-          )}
-          {editFooter}
-          {editing ? <View style={{ height: 80 }} /> : null}
-        </View>
       )}
+    </Row>
+  );
+
+  const body =
+    home.error && !d ? (
+      <ErrorState error={home.error} onRetry={() => home.refetch()} />
+    ) : !d ? (
+      <HomeSkeleton />
+    ) : (
+      <View>
+        <SyncNotice d={d} />
+        <FadeIn>{balanceBlock}</FadeIn>
+        {ordered.map(widget)}
+        {editFooter}
+        {editing ? <View style={{ height: 80 }} /> : null}
+      </View>
+    );
+
+  if (wide) {
+    // Desktop: everything from the phone Home in one column on the left, every transaction on the right.
+    const available = contentWidth - WIDE_PAGE_X * 2 - space.xl;
+    const leftW = available < 900 ? Math.round(available / 2) : Math.max(420, Math.min(580, Math.round(available * 0.44)));
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X }}>
+          <View style={{ width: leftW }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: space.xxxl }}>
+              {greetingRow}
+              {body}
+            </ScrollView>
+            {editBar}
+          </View>
+          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg }}>
+            <TransactionsPanel />
+          </View>
+        </View>
+        <SendSheet visible={sending} onClose={() => setSending(false)} />
+      </View>
+    );
+  }
+
+  return (
+    <Screen refreshing={home.isRefetching || sync.isPending} onRefresh={refresh} compactTitle={d ? `${d.greeting}, ${d.name ?? 'there'}` : 'Home'} overlay={editBar}>
+      {greetingRow}
+      {body}
       <SendSheet visible={sending} onClose={() => setSending(false)} />
     </Screen>
   );

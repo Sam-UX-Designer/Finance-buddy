@@ -31,11 +31,21 @@ export const MAX_WIDTH = 560;
 export const WIDE_MAX_WIDTH = 760;
 /** Width of the left navigation sidebar in the wide web layout. */
 export const SIDEBAR_W = 248;
+/** Side margin of the content area in the wide web layout. */
+export const WIDE_PAGE_X = 32;
+/** Widest the content area grows on very large monitors (tab screens fill the rest of the window). */
+export const WIDE_CONTENT_MAX = 1680;
 
 /** True when the app runs as a desktop-width web app (left sidebar instead of the bottom bar). */
 export function useWide(): boolean {
   const { width } = useWindowDimensions();
   return Platform.OS === 'web' && width >= 1024;
+}
+
+/** Width available to a screen next to the sidebar in the wide web layout (the window width elsewhere). */
+export function useContentWidth(): number {
+  const { width } = useWindowDimensions();
+  return Math.min(useWide() ? width - SIDEBAR_W : width, WIDE_CONTENT_MAX);
 }
 
 /** Extra bottom space tab screens leave so content can scroll clear of the floating tab bar. */
@@ -201,6 +211,8 @@ export function Sheet({
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const webBottom = useWebCoveredBottom(visible);
+  // Desktop web: a centred dialog instead of a sheet rising from the bottom of a large window.
+  const dialog = useWide();
   const y = useRef(new Animated.Value(40)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -220,29 +232,51 @@ export function Sheet({
         </Animated.View>
         <Animated.View
           accessibilityViewIsModal
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: webBottom,
-            maxHeight: '88%',
-            alignItems: 'center',
-            transform: [{ translateY: y }],
-          }}
+          pointerEvents="box-none"
+          style={
+            dialog
+              ? {
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: space.xxxl,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity,
+                  transform: [{ scale: y.interpolate({ inputRange: [0, 40], outputRange: [1, 0.96] }) }],
+                }
+              : {
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: webBottom,
+                  maxHeight: '88%',
+                  alignItems: 'center',
+                  transform: [{ translateY: y }],
+                }
+          }
         >
           <GlassSurface
             radius={radius.xl}
-            style={{
-              width: '100%',
-              maxWidth: MAX_WIDTH,
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
-              paddingBottom: Math.max(insets.bottom, space.lg),
-            }}
+            style={
+              dialog
+                ? { width: '100%', maxWidth: MAX_WIDTH, maxHeight: '100%', paddingTop: space.sm, paddingBottom: space.lg }
+                : {
+                    width: '100%',
+                    maxWidth: MAX_WIDTH,
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                    paddingBottom: Math.max(insets.bottom, space.lg),
+                  }
+            }
           >
-            <View style={{ alignItems: 'center', paddingTop: 8 }}>
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: c.border }} />
-            </View>
+            {dialog ? null : (
+              <View style={{ alignItems: 'center', paddingTop: 8 }}>
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: c.border }} />
+              </View>
+            )}
             {title && action ? (
               <Row style={{ paddingHorizontal: PAGE_X, paddingTop: space.md, gap: space.sm }}>
                 <IconButton icon={X} label="Close" onPress={onClose} size={20} style={{ marginLeft: -10 }} />
@@ -259,7 +293,7 @@ export function Sheet({
                 <IconButton icon={X} label="Close" onPress={onClose} size={20} style={{ marginRight: -10 }} />
               </Row>
             ) : null}
-            <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: PAGE_X, paddingTop: space.sm, paddingBottom: space.lg }} keyboardShouldPersistTaps="handled">
+            <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: PAGE_X, paddingTop: space.sm, paddingBottom: space.lg }} keyboardShouldPersistTaps="handled">
               {children}
             </ScrollView>
             {footer ? <View style={{ paddingHorizontal: PAGE_X }}>{footer}</View> : null}

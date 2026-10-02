@@ -7,12 +7,12 @@ import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/c
 import { errorMessage } from '@/lib/api';
 import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
 import { storage } from '@/lib/storage';
-import { ChatHistorySheet } from '@/features/ChatHistory';
+import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
-import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
+import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
 import { Button, IconButton, webInputReset } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
 import { SIOrb } from '@/ui/SIOrb';
@@ -37,7 +37,8 @@ export default function SIScreen() {
   const newChat = useNewChat();
   const wide = useWide();
   const tabInset = useTabBarInset();
-  const width = wide ? WIDE_MAX_WIDTH : MAX_WIDTH;
+  // Desktop: a little wider than other pages, but lines still short enough to read comfortably.
+  const width = wide ? WIDE_MAX_WIDTH + 120 : MAX_WIDTH;
   const keyboard = useKeyboardVisible();
   // Money-profile setup: SI asks for the numbers plans and forecasts use.
   const plan = usePlan();
@@ -141,183 +142,264 @@ export default function SIScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ flex: 1 }}>
-        {si.error && !si.data ? (
-          <View style={{ flex: 1, paddingTop: header }}>
-            <ErrorState error={si.error} onRetry={() => si.refetch()} />
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {/* Desktop: past chats stay in view on the left, like a mail or chat app. */}
+        {wide ? (
+          <View style={{ width: HISTORY_W, paddingLeft: WIDE_PAGE_X, paddingVertical: space.lg }}>
+            <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: radius.xl, overflow: 'hidden' }} role="navigation" aria-label="Chat history">
+              <T v="subtitle" accessibilityRole="header" style={{ paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md }}>
+                Chats
+              </T>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: space.md, paddingBottom: space.lg }}>
+                <ChatHistoryList
+                  currentId={si.data?.conversationId}
+                  onOpen={(id) => {
+                    setup.exit();
+                    setError(null);
+                    setOpenId(id);
+                  }}
+                  onNew={startNewChat}
+                />
+              </ScrollView>
+            </View>
           </View>
-        ) : !si.data ? (
-          <View style={{ flex: 1, paddingTop: header }}>
-            <LoadingState label="Super Intelligence is reading your latest numbers…" />
-          </View>
-        ) : (
-          <ScrollView
-            ref={scroll}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingTop: header + space.lg, paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H : 0) + space.xl }}
-          >
-            {setup.active ? (
-              <View style={{ gap: space.lg }} accessibilityLiveRegion="polite">
-                {setup.lines.map((l) => (
-                  <SetupBubble key={l.id} l={l} />
-                ))}
-              </View>
-            ) : (
-              <>
-              {needsSetup && !setupLater ? (
-                <FadeIn>
-                  <Card style={{ marginBottom: space.lg, gap: space.md }}>
-                    <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
-                      <SIOrb size={32} />
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <T v="bodySemibold">Let’s make your plan yours</T>
-                        <T v="small" tone="secondary">
-                          I’ve estimated your income and spending from your bank. Answer 5 quick questions so my advice fits you.
-                        </T>
-                      </View>
-                    </Row>
-                    <Row gap={space.sm}>
-                      <Button label="Start" size="md" onPress={startSetup} style={{ flex: 1 }} />
-                      <Button
-                        label="Not now"
-                        size="md"
-                        variant="secondary"
-                        style={{ flex: 1 }}
-                        onPress={() => {
-                          setSetupLater(true);
-                          void storage.set(SETUP_LATER_KEY, '1').catch(() => undefined);
-                        }}
-                      />
-                    </Row>
-                  </Card>
-                </FadeIn>
-              ) : null}
-
-              {/* Proactive brief */}
-              <FadeIn>
-                <Card style={{ gap: space.sm }}>
-                  <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
-                  {si.data.brief.enoughData ? (
-                    <>
-                      <T v="body">Here’s what I noticed this week:</T>
-                      {si.data.brief.items.map((i) => (
-                        <BriefLine key={i.id} item={i} />
-                      ))}
-                    </>
-                  ) : (
-                    <T v="body" tone="secondary">
-                      I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
-                    </T>
-                  )}
-                </Card>
-              </FadeIn>
-
-              {/* Conversation */}
-              <View style={{ marginTop: space.xl, gap: space.lg }}>
-                {si.data.messages.map((m) => (
-                  <Message key={m.id} m={m} />
-                ))}
-                {pending ? (
-                  <>
-                    <UserBubble text={pending} />
-                    <Row gap={space.sm} accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
-                      <ActivityIndicator size="small" color={c.textSecondary} />
-                      <T v="small" tone="secondary">
-                        Checking your numbers…
-                      </T>
-                    </Row>
-                  </>
-                ) : null}
-                {error ? (
-                  <Row gap={space.sm} accessibilityLiveRegion="polite">
-                    <CircleAlert size={16} color={c.negative} />
-                    <T v="small" tone="negative">
-                      {error}
-                    </T>
-                  </Row>
-                ) : null}
-              </View>
-              </>
-            )}
-          </ScrollView>
-        )}
-
-        {/* Sticky header: stays on top while the conversation scrolls underneath */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-            <Row gap={space.md} style={{ height: HEADER_H, width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
-              <SIOrb size={38} active={!!pending} />
-              <View style={{ flex: 1 }}>
-                <T v="bodySemibold" accessibilityRole="header">
-                  Super Intelligence
-                </T>
-                <T v="caption" tone="secondary">
-                  {setup.active ? 'Setting up your plan' : pending ? 'Thinking…' : 'Answers from your own numbers'}
-                </T>
-              </View>
-              <IconButton icon={History} label="Chat history" onPress={() => setHistoryOpen(true)} />
-              {setup.active ? (
-                <IconButton icon={X} label="Exit setup" onPress={setup.exit} />
-              ) : si.data?.messages.length ? (
-                <IconButton icon={SquarePen} label="New chat" onPress={startNewChat} />
-              ) : null}
-            </Row>
-          </GlassSurface>
-        </View>
-
-        {/* Input: floats above the tab bar */}
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
-          {showSuggestions ? (
+        ) : null}
+        <View style={{ flex: 1 }}>
+          {si.error && !si.data ? (
+            <View style={{ flex: 1, paddingTop: header }}>
+              <ErrorState error={si.error} onRetry={() => si.refetch()} />
+            </View>
+          ) : !si.data ? (
+            <View style={{ flex: 1, paddingTop: header }}>
+              <LoadingState label="Super Intelligence is reading your latest numbers…" />
+            </View>
+          ) : (
             <ScrollView
-              key={replies.join('|')}
-              horizontal
-              showsHorizontalScrollIndicator={false}
+              ref={scroll}
               keyboardShouldPersistTaps="handled"
-              accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
-              style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
-              contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
+              contentContainerStyle={{
+                width: '100%',
+                maxWidth: width,
+                alignSelf: 'center',
+                paddingHorizontal: PAGE_X,
+                paddingTop: header + space.lg,
+                paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H * (wide ? 2 : 1) : 0) + space.xl,
+              }}
             >
-              {replies.map((q) => (
-                <Press
-                  key={q}
-                  onPress={() => send(q)}
-                  accessibilityRole="button"
-                  style={{ height: SUGGEST_H - space.sm, borderRadius: (SUGGEST_H - space.sm) / 2, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
-                >
-                  <T v="small" numberOfLines={1}>
-                    {q}
-                  </T>
-                </Press>
-              ))}
+              {setup.active ? (
+                <View style={{ gap: space.lg }} accessibilityLiveRegion="polite">
+                  {setup.lines.map((l) => (
+                    <SetupBubble key={l.id} l={l} />
+                  ))}
+                </View>
+              ) : (
+                <>
+                  {needsSetup && !setupLater ? (
+                    <FadeIn>
+                      <Card style={{ marginBottom: space.lg, gap: space.md }}>
+                        <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
+                          <SIOrb size={32} />
+                          <View style={{ flex: 1, gap: 4 }}>
+                            <T v="bodySemibold">Let’s make your plan yours</T>
+                            <T v="small" tone="secondary">
+                              I’ve estimated your income and spending from your bank. Answer 5 quick questions so my advice fits you.
+                            </T>
+                          </View>
+                        </Row>
+                        <Row gap={space.sm}>
+                          <Button label="Start" size="md" onPress={startSetup} style={{ flex: 1 }} />
+                          <Button
+                            label="Not now"
+                            size="md"
+                            variant="secondary"
+                            style={{ flex: 1 }}
+                            onPress={() => {
+                              setSetupLater(true);
+                              void storage.set(SETUP_LATER_KEY, '1').catch(() => undefined);
+                            }}
+                          />
+                        </Row>
+                      </Card>
+                    </FadeIn>
+                  ) : null}
+
+                  {/* Proactive brief */}
+                  <FadeIn>
+                    <Card style={{ gap: space.sm }}>
+                      <T v="bodySemibold">{`${greeting}${first ? `, ${first}` : ''}!`}</T>
+                      {si.data.brief.enoughData ? (
+                        <>
+                          <T v="body">Here’s what I noticed this week:</T>
+                          {si.data.brief.items.map((i) => (
+                            <BriefLine key={i.id} item={i} />
+                          ))}
+                        </>
+                      ) : (
+                        <T v="body" tone="secondary">
+                          I don’t have enough history yet to summarise your week. I’ll share observations once your data shows a clear pattern.
+                        </T>
+                      )}
+                    </Card>
+                  </FadeIn>
+
+                  {/* Conversation */}
+                  <View style={{ marginTop: space.xl, gap: space.lg }}>
+                    {si.data.messages.map((m) => (
+                      <Message key={m.id} m={m} />
+                    ))}
+                    {pending ? (
+                      <>
+                        <UserBubble text={pending} />
+                        <Row gap={space.sm} accessibilityLabel="Super Intelligence is working on your answer" accessibilityLiveRegion="polite">
+                          <ActivityIndicator size="small" color={c.textSecondary} />
+                          <T v="small" tone="secondary">
+                            Checking your numbers…
+                          </T>
+                        </Row>
+                      </>
+                    ) : null}
+                    {error ? (
+                      <Row gap={space.sm} accessibilityLiveRegion="polite">
+                        <CircleAlert size={16} color={c.negative} />
+                        <T v="small" tone="negative">
+                          {error}
+                        </T>
+                      </Row>
+                    ) : null}
+                  </View>
+                </>
+              )}
             </ScrollView>
-          ) : null}
-          <GlassSurface radius={INPUT_H / 2} style={{ width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center', height: INPUT_H, flexDirection: 'row', alignItems: 'center', paddingLeft: space.lg, paddingRight: 6, gap: space.sm }}>
-            <TextInput
-              ref={input}
-              value={text}
-              onChangeText={setText}
-              placeholder={setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…')}
-              placeholderTextColor={c.textSecondary}
-              accessibilityLabel="Ask SI a question"
-              returnKeyType="send"
-              onSubmitEditing={() => send(text)}
-              maxLength={500}
-              autoComplete="off"
-              style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
-            />
-            <Press
-              onPress={() => (text.trim() ? send(text) : dictate())}
-              accessibilityRole="button"
-              accessibilityLabel={text.trim() ? 'Send' : 'Speak your question'}
-              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
+          )}
+
+          {/* Sticky header: stays on top while the conversation scrolls underneath */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+            <GlassSurface radius={0} flat style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+              <Row gap={space.md} style={{ height: HEADER_H, width: '100%', maxWidth: width, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
+                <SIOrb size={38} active={!!pending} />
+                <View style={{ flex: 1 }}>
+                  <T v="bodySemibold" accessibilityRole="header">
+                    Super Intelligence
+                  </T>
+                  <T v="caption" tone="secondary">
+                    {setup.active ? 'Setting up your plan' : pending ? 'Thinking…' : 'Answers from your own numbers'}
+                  </T>
+                </View>
+                {wide ? null : <IconButton icon={History} label="Chat history" onPress={() => setHistoryOpen(true)} />}
+                {setup.active ? (
+                  <IconButton icon={X} label="Exit setup" onPress={setup.exit} />
+                ) : si.data?.messages.length ? (
+                  <IconButton icon={SquarePen} label="New chat" onPress={startNewChat} />
+                ) : null}
+              </Row>
+            </GlassSurface>
+          </View>
+
+          {/* Input: floats above the tab bar */}
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
+            {showSuggestions ? (
+              wide ? (
+                // Desktop: the questions wrap onto a second line rather than running off the edge.
+                <View
+                  key={replies.join('|')}
+                  accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
+                  style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm, marginBottom: space.sm, width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center' }}
+                >
+                  {replies.map((q) => (
+                    <Press
+                      key={q}
+                      onPress={() => send(q)}
+                      accessibilityRole="button"
+                      style={{
+                        height: SUGGEST_H - space.sm,
+                        borderRadius: (SUGGEST_H - space.sm) / 2,
+                        paddingHorizontal: 16,
+                        justifyContent: 'center',
+                        backgroundColor: c.surface,
+                        borderWidth: 1,
+                        borderColor: c.border,
+                      }}
+                    >
+                      <T v="small" numberOfLines={1}>
+                        {q}
+                      </T>
+                    </Press>
+                  ))}
+                </View>
+              ) : (
+                <ScrollView
+                  key={replies.join('|')}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
+                  style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
+                  contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
+                >
+                  {replies.map((q) => (
+                    <Press
+                      key={q}
+                      onPress={() => send(q)}
+                      accessibilityRole="button"
+                      style={{
+                        height: SUGGEST_H - space.sm,
+                        borderRadius: (SUGGEST_H - space.sm) / 2,
+                        paddingHorizontal: 16,
+                        justifyContent: 'center',
+                        backgroundColor: c.surface,
+                        borderWidth: 1,
+                        borderColor: c.border,
+                      }}
+                    >
+                      <T v="small" numberOfLines={1}>
+                        {q}
+                      </T>
+                    </Press>
+                  ))}
+                </ScrollView>
+              )
+            ) : null}
+            <GlassSurface
+              radius={INPUT_H / 2}
+              style={{
+                width: '100%',
+                maxWidth: width - PAGE_X * 2,
+                alignSelf: 'center',
+                height: INPUT_H,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingLeft: space.lg,
+                paddingRight: 6,
+                gap: space.sm,
+              }}
             >
-              {text.trim() ? <ArrowUp size={18} color={c.primaryText} /> : <Mic size={18} color={c.primaryText} />}
-            </Press>
-          </GlassSurface>
+              <TextInput
+                ref={input}
+                value={text}
+                onChangeText={setText}
+                placeholder={setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…')}
+                placeholderTextColor={c.textSecondary}
+                accessibilityLabel="Ask SI a question"
+                returnKeyType="send"
+                onSubmitEditing={() => send(text)}
+                maxLength={500}
+                autoComplete="off"
+                style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
+              />
+              <Press
+                onPress={() => (text.trim() ? send(text) : dictate())}
+                accessibilityRole="button"
+                accessibilityLabel={text.trim() ? 'Send' : 'Speak your question'}
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
+              >
+                {text.trim() ? <ArrowUp size={18} color={c.primaryText} /> : <Mic size={18} color={c.primaryText} />}
+              </Press>
+            </GlassSurface>
+          </View>
         </View>
       </View>
       <ChatHistorySheet
-        visible={historyOpen}
+        visible={historyOpen && !wide}
         onClose={() => setHistoryOpen(false)}
         currentId={si.data?.conversationId}
         onOpen={(id) => {
@@ -336,6 +418,8 @@ export default function SIScreen() {
 }
 
 const HEADER_H = 60;
+/** Desktop chat history column width. */
+const HISTORY_W = 300;
 const SETUP_LATER_KEY = 'fb.si.setupLater';
 /** "Update my numbers", "change my income", "set up my profile"… start SI's setup questions. */
 const UPDATE_NUMBERS = /\b(update|change|edit|set ?up|redo)\b.*\b(numbers|income|salary|assumptions?|profile|spending|buffer)\b/i;

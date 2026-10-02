@@ -1,27 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, SectionList, TextInput, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, SectionList, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import {
-  addMonthsToKey,
-  formatDate,
-  formatMonthKey,
-  istDateKey,
-  istMonthKey,
-  SPEND_CATEGORY_IDS,
-  category,
-  type ActivityFilter,
-  type CategoryId,
-  type TxnDTO,
-} from '@finance-buddy/core';
+import { addMonthsToKey, formatMonthKey, istDateKey, istMonthKey, SPEND_CATEGORY_IDS, category, type ActivityFilter, type CategoryId } from '@finance-buddy/core';
 import { useAccounts, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { Button, Chip, ChipRow, IconButton, webInputReset } from '@/ui/controls';
-import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useTabBarInset, useWide, WIDE_MAX_WIDTH } from '@/ui/layout';
+import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useContentWidth, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
-import { TxnRow } from '@/features/TxnRow';
+import { groupByDay, TxnRow } from '@/features/TxnRow';
+import { TransactionDetail } from '@/features/TransactionDetail';
 import { DateRangeCalendar, rangeLabel, shiftDay } from '@/ui/DateRangeCalendar';
 
 const FILTERS: { key: ActivityFilter; label: string }[] = [
@@ -33,16 +23,10 @@ const FILTERS: { key: ActivityFilter; label: string }[] = [
   { key: 'transfers', label: 'Transfers' },
 ];
 
-function dayLabel(iso: string): string {
-  const key = istDateKey(iso);
-  const today = istDateKey(new Date().toISOString());
-  const yesterday = istDateKey(new Date(Date.now() - 86400000).toISOString());
-  if (key === today) return `Today, ${formatDate(iso)}`;
-  if (key === yesterday) return `Yesterday, ${formatDate(iso)}`;
-  return formatDate(iso);
-}
-
-/** Activity: understand money movement (Blueprint §9). Merchant first, raw description secondary. */
+/**
+ * Activity: understand money movement (Blueprint §9). Merchant first, raw description secondary.
+ * Desktop: the list on the left and the picked transaction's full detail on the right.
+ */
 export default function ActivityScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -56,7 +40,10 @@ export default function ActivityScreen() {
   const [categoryId, setCategoryId] = useState<CategoryId | undefined>();
   const [sheet, setSheet] = useState(false);
   const tabInset = useTabBarInset();
-  const contentWidth = useWide() ? WIDE_MAX_WIDTH : MAX_WIDTH;
+  const wide = useWide();
+  const pageWidth = useContentWidth();
+  const contentWidth = wide ? WIDE_MAX_WIDTH : MAX_WIDTH;
+  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.filter) setFilter(params.filter);
@@ -74,48 +61,43 @@ export default function ActivityScreen() {
 
   const txns = useTxns({ filter, q, month, from: range?.from, to: range?.to, accountId, categoryId });
   const items = useMemo(() => txns.data?.pages.flatMap((p) => p.items) ?? [], [txns.data]);
-  const sections = useMemo(() => {
-    const out: { title: string; data: TxnDTO[] }[] = [];
-    for (const t of items) {
-      const title = dayLabel(t.postedAt);
-      const last = out[out.length - 1];
-      if (last && last.title === title) last.data.push(t);
-      else out.push({ title, data: [t] });
-    }
-    return out;
-  }, [items]);
+  const sections = useMemo(() => groupByDay(items), [items]);
+  // Desktop shows one transaction's detail at all times: the one picked, else the newest in the list.
+  const selectedId = picked && items.some((t) => t.id === picked) ? picked : items[0]?.id;
   const activeFilters = [month, range, accountId, categoryId].filter(Boolean).length;
   const today = istDateKey(new Date().toISOString());
 
-  return (
-    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      <View style={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
-        <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />
-        <Row style={{ backgroundColor: c.surface, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
-          <Search size={18} color={c.textTertiary} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search transactions…"
-            placeholderTextColor={c.textTertiary}
-            accessibilityLabel="Search transactions"
-            returnKeyType="search"
-            style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
-          />
-          {query ? <IconButton icon={X} label="Clear search" size={16} onPress={() => setQuery('')} style={{ width: 28, height: 28 }} /> : null}
-        </Row>
-        <View style={{ marginTop: space.md, marginBottom: space.sm }}>
-          <ChipRow options={FILTERS} value={filter} onChange={setFilter} />
-        </View>
-        {activeFilters ? (
-          <Row gap={space.sm} style={{ flexWrap: 'wrap', marginBottom: space.sm }}>
-            {month ? <Chip label={formatMonthKey(month, 'short')} selected onPress={() => setMonth(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
-            {range ? <Chip label={rangeLabel(range.from, range.to, today)} selected onPress={() => setRange(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
-            {categoryId ? <Chip label={category(categoryId).name} selected onPress={() => setCategoryId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
-            {accountId ? <Chip label="Account" selected onPress={() => setAccountId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
-          </Row>
-        ) : null}
+  const header = (
+    <View style={wide ? null : { width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
+      <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />
+      <Row style={{ backgroundColor: c.surface, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
+        <Search size={18} color={c.textTertiary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search transactions…"
+          placeholderTextColor={c.textTertiary}
+          accessibilityLabel="Search transactions"
+          returnKeyType="search"
+          style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
+        />
+        {query ? <IconButton icon={X} label="Clear search" size={16} onPress={() => setQuery('')} style={{ width: 28, height: 28 }} /> : null}
+      </Row>
+      <View style={{ marginTop: space.md, marginBottom: space.sm }}>
+        <ChipRow options={FILTERS} value={filter} onChange={setFilter} />
       </View>
+      {activeFilters ? (
+        <Row gap={space.sm} style={{ flexWrap: 'wrap', marginBottom: space.sm }}>
+          {month ? <Chip label={formatMonthKey(month, 'short')} selected onPress={() => setMonth(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
+          {range ? <Chip label={rangeLabel(range.from, range.to, today)} selected onPress={() => setRange(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
+          {categoryId ? <Chip label={category(categoryId).name} selected onPress={() => setCategoryId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
+          {accountId ? <Chip label="Account" selected onPress={() => setAccountId(undefined)} icon={<X size={12} color={c.primaryText} />} /> : null}
+        </Row>
+      ) : null}
+    </View>
+  );
+  const list = (
+    <>
       {txns.error && !txns.data ? (
         <ErrorState error={txns.error} onRetry={() => txns.refetch()} />
       ) : !txns.data ? (
@@ -125,7 +107,7 @@ export default function ActivityScreen() {
           sections={sections}
           keyExtractor={(t) => t.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingBottom: space.xxxl + tabInset }}
+          contentContainerStyle={wide ? { paddingBottom: space.xxxl } : { width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X, paddingBottom: space.xxxl + tabInset }}
           refreshControl={<RefreshControl refreshing={txns.isRefetching && !txns.isFetchingNextPage} onRefresh={() => txns.refetch()} tintColor={c.textSecondary} />}
           onEndReachedThreshold={0.4}
           onEndReached={() => txns.hasNextPage && !txns.isFetchingNextPage && txns.fetchNextPage()}
@@ -152,7 +134,7 @@ export default function ActivityScreen() {
                 }}
               >
                 {first ? null : <View style={{ height: 1, backgroundColor: c.divider, marginLeft: 54 }} />}
-                <TxnRow t={item} />
+                <TxnRow t={item} onPress={wide ? () => setPicked(item.id) : undefined} selected={wide ? item.id === selectedId : undefined} />
               </View>
             );
           }}
@@ -174,22 +156,59 @@ export default function ActivityScreen() {
           ListFooterComponent={txns.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: space.lg }} color={c.textSecondary} /> : null}
         />
       )}
-      <FilterSheet
-        visible={sheet}
-        onClose={() => setSheet(false)}
-        month={month}
-        from={range?.from}
-        to={range?.to}
-        accountId={accountId}
-        categoryId={categoryId}
-        onApply={(f) => {
-          setMonth(f.month);
-          setRange(f.from && f.to ? { from: f.from, to: f.to } : undefined);
-          setAccountId(f.accountId);
-          setCategoryId(f.categoryId);
-          setSheet(false);
-        }}
-      />
+    </>
+  );
+  const filterSheet = (
+    <FilterSheet
+      visible={sheet}
+      onClose={() => setSheet(false)}
+      month={month}
+      from={range?.from}
+      to={range?.to}
+      accountId={accountId}
+      categoryId={categoryId}
+      onApply={(f) => {
+        setMonth(f.month);
+        setRange(f.from && f.to ? { from: f.from, to: f.to } : undefined);
+        setAccountId(f.accountId);
+        setCategoryId(f.categoryId);
+        setSheet(false);
+      }}
+    />
+  );
+
+  if (wide) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: pageWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X }}>
+          <View style={{ flex: 1.15, minWidth: 0 }}>
+            {header}
+            {list}
+          </View>
+          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg }}>
+            <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: radius.xl, overflow: 'hidden' }} role="region" aria-label="Transaction details">
+              {selectedId ? (
+                <ScrollView contentContainerStyle={{ paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: space.xxl }}>
+                  <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+                    <TransactionDetail key={selectedId} id={selectedId} />
+                  </View>
+                </ScrollView>
+              ) : (
+                <EmptyState title="Nothing to show yet" body="Pick a transaction on the left to see its details here." />
+              )}
+            </View>
+          </View>
+        </View>
+        {filterSheet}
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+      {header}
+      {list}
+      {filterSheet}
     </View>
   );
 }

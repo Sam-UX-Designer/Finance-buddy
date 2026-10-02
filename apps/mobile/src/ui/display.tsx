@@ -198,6 +198,7 @@ export function ListRow({
   chevron,
   style,
   accessibilityLabel,
+  selected,
 }: {
   left?: ReactNode;
   title: string;
@@ -208,10 +209,12 @@ export function ListRow({
   chevron?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** Desktop lists whose detail shows beside them mark the row being shown. */
+  selected?: boolean;
 }) {
   const { c } = useTheme();
   const body = (
-    <Row style={[{ paddingVertical: space.md, gap: space.md }, style]}>
+    <Row style={[{ paddingVertical: space.md, gap: space.md }, selected ? { backgroundColor: c.surfaceMuted, borderRadius: radius.md, marginHorizontal: -space.sm, paddingHorizontal: space.sm } : null, style]}>
       {left}
       <View style={{ flex: 1, gap: 2 }}>
         <T v="bodyMedium" numberOfLines={1}>
@@ -240,7 +243,7 @@ export function ListRow({
   );
   if (!onPress) return body;
   return (
-    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} scaleTo={0.99}>
+    <Press onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} accessibilityState={selected === undefined ? undefined : { selected }} scaleTo={0.99}>
       {body}
     </Press>
   );

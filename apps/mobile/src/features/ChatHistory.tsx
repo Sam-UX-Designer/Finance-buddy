@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { SquarePen, Trash2 } from 'lucide-react-native';
 import { formatDate, formatTime, type SIConversationDTO } from '@finance-buddy/core';
@@ -25,6 +25,7 @@ function groupLabel(iso: string, now: number): string {
   return `${mon} ${year}`;
 }
 
+/** Phones: chat history in a sheet. */
 export function ChatHistorySheet({
   visible,
   onClose,
@@ -38,8 +39,17 @@ export function ChatHistorySheet({
   onOpen: (id: string) => void;
   onNew: () => void;
 }) {
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Chat history">
+      <ChatHistoryList enabled={visible} currentId={currentId} onOpen={onOpen} onNew={onNew} />
+    </Sheet>
+  );
+}
+
+/** "New chat" and past chats grouped by date. The phone sheet and the desktop column both use it. */
+export function ChatHistoryList({ enabled = true, currentId, onOpen, onNew }: { enabled?: boolean; currentId?: string; onOpen: (id: string) => void; onNew: () => void }) {
   const { c } = useTheme();
-  const history = useSIHistory(visible);
+  const history = useSIHistory(enabled);
   const del = useDeleteChat();
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
@@ -55,13 +65,13 @@ export function ChatHistorySheet({
     return out;
   }, [history.data]);
 
-  const close = () => {
-    setConfirmId(null);
-    onClose();
-  };
+  // A delete waiting for confirmation is dropped when the list is put away.
+  useEffect(() => {
+    if (!enabled) setConfirmId(null);
+  }, [enabled]);
 
   return (
-    <Sheet visible={visible} onClose={close} title="Chat history">
+    <>
       <Press
         onPress={() => {
           setConfirmId(null);
@@ -146,6 +156,6 @@ export function ChatHistorySheet({
           </View>
         ))
       )}
-    </Sheet>
+    </>
   );
 }

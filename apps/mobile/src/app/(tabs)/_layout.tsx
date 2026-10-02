@@ -1,11 +1,12 @@
 import { Tabs } from 'expo-router/js-tabs';
-import { GlassTabBar, Sidebar, TABS, useTabBarSpace } from '@/features/Navigation';
+import { GlassTabBar, TABS, useTabBarSpace } from '@/features/Navigation';
 import { useTheme } from '@/theme/ThemeProvider';
-import { SIDEBAR_W, TabBarInset, useWide } from '@/ui/layout';
+import { TabBarInset, useWide } from '@/ui/layout';
 
 /**
  * Five primary destinations, stable after onboarding (Blueprint §7).
- * Phones and narrow windows: floating Liquid Glass tab bar. Desktop web: left sidebar.
+ * Phones and narrow windows: floating Liquid Glass tab bar. Desktop web: the sidebar, drawn by the
+ * root layout so it stays on every screen.
  */
 export default function TabsLayout() {
   const { c, reduceMotion } = useTheme();
@@ -17,9 +18,9 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           animation: reduceMotion ? 'none' : 'fade',
-          sceneStyle: { backgroundColor: c.bg, paddingLeft: wide ? SIDEBAR_W : 0 },
+          sceneStyle: { backgroundColor: c.bg },
         }}
-        tabBar={(props) => (wide ? <Sidebar {...props} /> : <GlassTabBar {...props} />)}
+        tabBar={(props) => (wide ? null : <GlassTabBar {...props} />)}
       >
         {TABS.map((t) => (
           <Tabs.Screen key={t.name} name={t.name} options={{ title: t.label === 'SI' ? 'Super Intelligence' : t.label }} />

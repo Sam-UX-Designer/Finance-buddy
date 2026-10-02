@@ -4,15 +4,18 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { useFonts } from 'expo-font';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApiRequestError } from '@/lib/api';
-import { SessionProvider } from '@/lib/session';
+import { SessionProvider, useSession } from '@/lib/session';
+import { Sidebar } from '@/features/Navigation';
+import { NotificationsPanel } from '@/features/Notifications';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { SIDEBAR_W, useWide } from '@/ui/layout';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -28,24 +31,44 @@ function makeClient() {
   });
 }
 
+/** Signed-in screens. On desktop web these sit next to the sidebar, which never goes away. */
+const SHELL_ROUTES = new Set(['(tabs)', 'accounts', 'assumptions', 'goal', 'notifications', 'settings', 'transaction', 'upcoming']);
+
 function Navigator() {
   const { c, scheme, reduceMotion } = useTheme();
+  const { token } = useSession();
+  const wide = useWide();
+  const segments = useSegments() as string[];
+  const pathname = usePathname();
+  const shell = wide && !!token && SHELL_ROUTES.has(segments[0] ?? '');
+  const [notifications, setNotifications] = useState(false);
+  const closeNotifications = useCallback(() => setNotifications(false), []);
+  // Going somewhere else (or leaving the desktop layout) puts the panel away.
+  useEffect(() => setNotifications(false), [pathname, shell]);
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: c.bg },
-          animation: reduceMotion ? 'none' : 'slide_from_right',
-          animationDuration: 250,
-        }}
-      >
-        <Stack.Screen name="index" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="onboarding/success" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="onboarding/sync" options={{ gestureEnabled: false }} />
-      </Stack>
+      <View style={{ flex: 1, paddingLeft: shell ? SIDEBAR_W : 0 }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: c.bg },
+            animation: reduceMotion ? 'none' : 'slide_from_right',
+            animationDuration: 250,
+          }}
+        >
+          <Stack.Screen name="index" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="onboarding/success" options={{ animation: 'fade', gestureEnabled: false }} />
+          <Stack.Screen name="onboarding/sync" options={{ gestureEnabled: false }} />
+        </Stack>
+      </View>
+      {shell ? (
+        <>
+          <Sidebar notificationsOpen={notifications} onToggleNotifications={() => setNotifications((v) => !v)} />
+          <NotificationsPanel visible={notifications} onClose={closeNotifications} />
+        </>
+      ) : null}
     </View>
   );
 }

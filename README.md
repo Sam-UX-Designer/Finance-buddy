@@ -61,7 +61,7 @@ npm run dev:web                           # API on :4000 + web app on http://loc
 
 - **Sign in:** any Indian mobile number (e.g. `98765 43210`), OTP **`123456`** (development mode).
 - **Sandbox data:** the AA sandbox returns 12 months of realistic history (salary, rent, SIPs, food, bills,
-  loans to friends, refunds, transfers) for a test persona ("Sam Kumar"), so every screen has real, reconciled numbers.
+  loans to friends, refunds, transfers) for a test persona ("Sam Jo"), so every screen has real, reconciled numbers.
 
 ### On your phone (iOS / Android)
 

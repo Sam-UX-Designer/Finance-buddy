@@ -8,7 +8,7 @@ import { between, hashSeed, intBetween, pick, rngFor } from './prng';
  * never changes between fetches and new transactions appear as real time passes.
  * This is test data only — it is never shown as real financial information outside the sandbox.
  */
-export const HOLDER_NAME = 'SAM KUMAR';
+export const HOLDER_NAME = 'SAM JO';
 const ANCHOR = { year: 2025, month: 1 };
 
 export interface PersonaAccount {

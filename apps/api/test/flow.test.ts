@@ -87,7 +87,7 @@ describe('end-to-end onboarding and product flow', () => {
     expect(sync.json.job.steps.every((s: any) => s.status === 'DONE')).toBe(true);
 
     const me = await t.call('GET', '/v1/me');
-    expect(me.json).toMatchObject({ onboardingState: 'READY', name: 'Sam Kumar' });
+    expect(me.json).toMatchObject({ onboardingState: 'READY', name: 'Sam Jo' });
 
     // Every account reconciles against the bank-reported balance.
     const accounts = await t.call('GET', '/v1/accounts');
@@ -224,6 +224,26 @@ describe('end-to-end onboarding and product flow', () => {
     expect((await t.call('GET', '/v1/me')).json.onboardingState).toBe('READY');
     const home: HomeDTO = (await t.call('GET', '/v1/home')).json;
     expect(home.balance.accountCount).toBe(2);
+  });
+
+  it('keeps the profile name in step with the bank, unless the user typed their own', async () => {
+    const t = await setup();
+    await signIn(t, '9123456780');
+    await onboard(t);
+    // An older sync saved the bank's previous holder name, and the profile copied it.
+    const user = (await t.call('GET', '/v1/me')).json;
+    await t.ctx.db.run('UPDATE accounts SET holder_name_enc = ? WHERE user_id = ?', t.ctx.vault.encrypt('OLD NAME'), user.id);
+    await t.call('PATCH', '/v1/me', { name: 'Old Name' });
+    const resync = async () => {
+      await t.call('POST', '/v1/sync');
+      await waitFor(() => t.call('GET', '/v1/sync/latest'), (r) => r.json.job && r.json.job.status !== 'RUNNING');
+    };
+    await resync();
+    expect((await t.call('GET', '/v1/me')).json.name).toBe('Sam Jo');
+    // A name typed in Settings is never replaced.
+    await t.call('PATCH', '/v1/me', { name: 'Sammy' });
+    await resync();
+    expect((await t.call('GET', '/v1/me')).json.name).toBe('Sammy');
   });
 
   it('labels a partial picture when an FIP fails', async () => {

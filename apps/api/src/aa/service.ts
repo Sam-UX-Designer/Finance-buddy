@@ -337,7 +337,11 @@ async function runSync(ctx: AppContext, userId: string, jobId: string): Promise<
 
     // 3. Categorise (rules + engine passes) and 4. recurring detection (both inside recompute).
     await setStep(ctx, jobId, 'categorize', 'RUNNING');
-    if (holderNames[0] && !userName(ctx, user)) await updateProfile(ctx, userId, { name: titleCase(holderNames[0]) });
+    // The profile name starts as the bank's account-holder name. While it is still that copy (never
+    // edited in Settings), it follows the bank if the bank's name changes; a name the user typed stays.
+    const current = userName(ctx, user);
+    const fromBank = accounts.some((a) => a.holder_name_enc && titleCase(ctx.vault.decrypt(a.holder_name_enc)) === current);
+    if (holderNames[0] && (!current || fromBank) && current !== titleCase(holderNames[0])) await updateProfile(ctx, userId, { name: titleCase(holderNames[0]) });
     await recompute(ctx, userId);
     await setStep(ctx, jobId, 'categorize', 'DONE');
     await setStep(ctx, jobId, 'recurring', 'RUNNING');

@@ -95,14 +95,16 @@ export function BalanceCards({
       <View onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))} accessibilityLabel="Balance cards" style={{ gap: space.sm }}>
         <Row gap={spread ? 0 : STRIP_GAP} style={{ alignItems: 'flex-start', justifyContent: spread ? 'space-between' : 'flex-start' }}>
           <DeskCard
+            intro={introDelay(0)}
             width={totalW}
             height={h}
             label={hidden ? 'Total balance, hidden' : `Total balance ${formatINR(total)} across ${accounts.length} accounts`}
             front={(t, flipped) => <TotalFront total={total} accounts={accounts} hidden={hidden} onToggleHidden={onToggleHidden} width={totalW} height={h} tilt={t} sweep={sweep} active={!flipped} />}
             back={(t) => <TotalBack accounts={accounts} hidden={hidden} width={totalW} height={h} tilt={t} sweep={sweep} />}
           />
-          {accounts.map((a) => (
+          {accounts.map((a, i) => (
             <DeskCard
+              intro={introDelay(i + 1)}
               key={a.id}
               width={bankStripW}
               height={h}
@@ -132,6 +134,7 @@ export function BalanceCards({
         {width ? (
           <View style={{ gap }}>
             <DeskCard
+              intro={introDelay(0)}
               width={width}
               height={fullH}
               label={hidden ? 'Total balance, hidden' : `Total balance ${formatINR(total)} across ${accounts.length} accounts`}
@@ -145,6 +148,7 @@ export function BalanceCards({
                 const h = full ? fullH : halfH;
                 return (
                   <DeskCard
+                    intro={introDelay(i + 1)}
                     key={a.id}
                     width={w}
                     height={h}
@@ -180,6 +184,7 @@ export function BalanceCards({
         >
           <View style={{ width: pageW, paddingHorizontal: bleed }}>
             <FlipCard
+              intro={introDelay(0)}
               width={cardW}
               height={height}
               tilt={tilt}
@@ -190,9 +195,10 @@ export function BalanceCards({
               back={() => <TotalBack accounts={accounts} hidden={hidden} width={cardW} height={height} tilt={tilt} sweep={sweep} />}
             />
           </View>
-          {accounts.map((a) => (
+          {accounts.map((a, i) => (
             <View key={a.id} style={{ width: pageW, paddingHorizontal: bleed }}>
               <FlipCard
+                intro={introDelay(i + 1)}
                 width={cardW}
                 height={height}
                 tilt={tilt}
@@ -225,42 +231,96 @@ export function BalanceCards({
 }
 
 /** Desktop card with its own tilt, so hovering one card doesn't tilt the others. */
-function DeskCard({ width, height, label, front, back }: { width: number; height: number; label: string; front: (tilt: Tilt, flipped: boolean) => ReactNode; back: (tilt: Tilt) => ReactNode }) {
+function DeskCard({
+  width,
+  height,
+  label,
+  front,
+  back,
+  intro,
+}: {
+  width: number;
+  height: number;
+  label: string;
+  front: (tilt: Tilt, flipped: boolean) => ReactNode;
+  back: (tilt: Tilt) => ReactNode;
+  intro?: number;
+}) {
   const tilt = useRef<Tilt>({ x: new Animated.Value(0), y: new Animated.Value(0) }).current;
-  return <FlipCard width={width} height={height} tilt={tilt} label={label} front={(flipped) => front(tilt, flipped)} back={() => back(tilt)} />;
+  return <FlipCard width={width} height={height} tilt={tilt} label={label} intro={intro} front={(flipped) => front(tilt, flipped)} back={() => back(tilt)} />;
 }
 
+/** Welcome spin timing: the first card starts after a short pause, the rest follow in a ripple. */
+const introDelay = (i: number) => 450 + i * 110;
+
 // ── Card shell: tilt + flip ─────────────────────────────────────────────
-function FlipCard({ width, height, tilt, label, front, back }: { width: number; height: number; tilt: Tilt; label: string; front: (flipped: boolean) => ReactNode; back: () => ReactNode }) {
+/**
+ * A card that turns over when tapped. It always turns the same way: the first tap shows the back,
+ * the next carries on round to the front (a full 360°), never spinning back the way it came.
+ * `intro` (ms) gives a welcome spin, one full turn, that long after the card first appears.
+ */
+function FlipCard({
+  width,
+  height,
+  tilt,
+  label,
+  front,
+  back,
+  intro,
+}: {
+  width: number;
+  height: number;
+  tilt: Tilt;
+  label: string;
+  front: (flipped: boolean) => ReactNode;
+  back: () => ReactNode;
+  intro?: number;
+}) {
   const { reduceMotion } = useTheme();
+  // Measured in half turns (1 = 180°). It only ever goes up; even = front showing, odd = back.
   const flip = useRef(new Animated.Value(0)).current;
+  const side = useRef(Animated.modulo(flip, 2)).current;
   const [flipped, setFlipped] = useState(false);
   const ref = useRef<View>(null);
   usePointerTilt(ref, tilt, !reduceMotion);
 
+  // Welcome spin when Home first appears (opening or refreshing the app).
+  useEffect(() => {
+    if (intro === undefined || reduceMotion) return;
+    const spin = Animated.sequence([Animated.delay(intro), Animated.timing(flip, { toValue: 2, duration: 1000, easing: Easing.inOut(Easing.cubic), useNativeDriver: ND })]);
+    spin.start(({ finished }) => {
+      if (finished) flip.setValue(0); // two half turns look exactly like none
+    });
+    return () => spin.stop();
+  }, []);
+
   const toggle = () => {
     askMotionPermission();
-    const to = flipped ? 0 : 1;
-    setFlipped(!flipped);
     haptics.tap();
-    if (reduceMotion) flip.setValue(to);
-    else Animated.spring(flip, { toValue: to, useNativeDriver: ND, friction: 9, tension: 40 }).start();
+    // Carry on from wherever the card is now (even mid-spin) to the next half turn.
+    flip.stopAnimation((v) => {
+      const to = Math.floor(v + 0.01) + 1;
+      setFlipped(to % 2 === 1);
+      if (reduceMotion) flip.setValue(to);
+      else Animated.spring(flip, { toValue: to, useNativeDriver: ND, friction: 9, tension: 40 }).start();
+    });
   };
 
   const rotateX = tilt.y.interpolate({ inputRange: [-1, 1], outputRange: ['9deg', '-9deg'] });
   const rotateY = tilt.x.interpolate({ inputRange: [-1, 1], outputRange: ['-12deg', '12deg'] });
-  const face = (from: string, to: string, visibleFrom: 0 | 1) => ({
-    opacity: flip.interpolate({ inputRange: [0, 0.5, 0.5001, 1], outputRange: visibleFrom === 0 ? [1, 1, 0, 0] : [0, 0, 1, 1] }),
-    transform: [{ perspective: 1200 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: [from, to] }) }],
+  // Each face turns with the card; it shows while it faces the viewer.
+  const face = (offset: 0 | -180, showsOn: 'front' | 'back') => ({
+    opacity: side.interpolate({ inputRange: [0, 0.5, 0.5001, 1.5, 1.5001, 2], outputRange: showsOn === 'front' ? [1, 1, 0, 0, 1, 1] : [0, 0, 1, 1, 0, 0] }),
+    transform: [{ perspective: 1200 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: [`${offset}deg`, `${offset + 180}deg`], extrapolate: 'extend' }) }],
   });
 
   return (
     <Pressable onPress={toggle} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={flipped ? 'Shows the front of the card' : 'Shows card details'}>
       <Animated.View ref={ref} style={{ width, height, transform: [{ perspective: 1200 }, { rotateX }, { rotateY }] }}>
-        <Animated.View style={[styles.face, face('0deg', '180deg', 0)]} pointerEvents={flipped ? 'none' : 'box-none'}>
+        <Animated.View style={[styles.face, face(0, 'front')]} pointerEvents={flipped ? 'none' : 'box-none'}>
           {front(flipped)}
         </Animated.View>
-        <Animated.View style={[styles.face, face('-180deg', '0deg', 1)]} pointerEvents={flipped ? 'box-none' : 'none'}>
+        <Animated.View style={[styles.face, face(-180, 'back')]} pointerEvents={flipped ? 'box-none' : 'none'}>
           {back()}
         </Animated.View>
       </Animated.View>

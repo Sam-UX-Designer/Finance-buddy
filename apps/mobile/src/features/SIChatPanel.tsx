@@ -1,17 +1,17 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { ArrowUp, CircleAlert, Maximize2 } from 'lucide-react-native';
 import { greetingFor } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useAsk, useSI } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, radius, space } from '@/theme/tokens';
-import { webInputReset } from '@/ui/controls';
+import { radius, space } from '@/theme/tokens';
 import { ErrorState, Skeleton, useSoftShadow } from '@/ui/layout';
 import { Press, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
+import { GrowingInput, INPUT_LINE } from './GrowingInput';
 import { PromptPills } from './PromptPills';
 import { BriefLine, Message, ThinkingRow, UPDATE_NUMBERS, useFreshMessages, UserBubble } from './SIMessages';
 
@@ -162,18 +162,21 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
         {si.data && !pending && !fresh.typing && prompts.length ? (
           <PromptPills key={prompts.join('|')} items={prompts} onPick={send} fade={c.surface} padX={space.md} style={{ marginHorizontal: -space.md }} />
         ) : null}
-        <Row gap={space.sm} style={{ height: 44, borderRadius: 22, paddingLeft: space.lg, paddingRight: 4, backgroundColor: c.surfaceMuted }}>
-          <TextInput
+        {/* Grows with long questions (up to four lines); the send button stays on the bottom line. */}
+        <Row gap={space.sm} style={{ minHeight: 44, alignItems: 'flex-end', borderRadius: 22, paddingLeft: space.lg, paddingRight: 4, paddingVertical: 4, backgroundColor: c.surfaceMuted }}>
+          <GrowingInput
             value={text}
             onChangeText={setText}
+            onSubmit={() => send(text)}
+            color={c.text}
+            maxLines={4}
             placeholder="Ask Super Intelligence…"
             placeholderTextColor={c.textSecondary}
             accessibilityLabel="Ask Super Intelligence a question"
             returnKeyType="send"
-            onSubmitEditing={() => send(text)}
             maxLength={500}
             autoComplete="off"
-            style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
+            style={{ marginVertical: (36 - INPUT_LINE) / 2 }}
           />
           <Press
             onPress={() => send(text)}

@@ -9,14 +9,15 @@ import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/que
 import { storage } from '@/lib/storage';
 import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
 import { BriefLine, Message, ThinkingRow, UPDATE_NUMBERS, useFreshMessages, UserBubble } from '@/features/SIMessages';
+import { GrowingInput, INPUT_LINE } from '@/features/GrowingInput';
 import { PromptPills } from '@/features/PromptPills';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 import { ErrorState, FadeIn, LoadingState, MAX_WIDTH, PAGE_X, useRememberedFlag, useSoftShadow, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
 import { Icon3D, Section } from '@/ui/section';
-import { Button, IconButton, webInputReset } from '@/ui/controls';
+import { Button, IconButton } from '@/ui/controls';
 import { GlassSurface } from '@/ui/glass';
 import { ThinkingOrb } from '@/ui/orbs/ThinkingOrb';
 import { SIOrb } from '@/ui/SIOrb';
@@ -121,6 +122,8 @@ export default function SIScreen() {
   const input = useRef<TextInput>(null);
   const speech = useRef<SpeechRec | null>(null);
   const [listening, setListening] = useState(false);
+  // The question box grows with long questions; the conversation keeps clear of it.
+  const [inputH, setInputH] = useState(INPUT_H);
   const dictate = () => {
     if (speech.current) return speech.current.stop();
     const W = globalThis as unknown as { webkitSpeechRecognition?: new () => SpeechRec; SpeechRecognition?: new () => SpeechRec };
@@ -238,7 +241,7 @@ export default function SIScreen() {
                   alignSelf: 'center',
                   paddingHorizontal: PAGE_X,
                   paddingTop: header + space.lg,
-                  paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H : 0) + space.xl,
+                  paddingBottom: inputBottom + inputH + (showSuggestions ? SUGGEST_H : 0) + space.xl,
                 }}
               >
                 {setup.active ? (
@@ -365,31 +368,39 @@ export default function SIScreen() {
               ) : null}
               <GlassSurface
                 radius={INPUT_H / 2}
+                onLayout={(e) => setInputH(Math.round(e.nativeEvent.layout.height))}
                 style={{
                   width: '100%',
                   maxWidth: width - PAGE_X * 2,
                   alignSelf: 'center',
-                  height: INPUT_H,
+                  minHeight: INPUT_H,
                   flexDirection: 'row',
-                  alignItems: 'center',
+                  // Long questions grow the box upwards; the buttons stay on the bottom line.
+                  alignItems: 'flex-end',
                   paddingLeft: space.lg,
                   paddingRight: 6,
+                  paddingVertical: (INPUT_H - 40) / 2,
                   gap: space.sm,
                 }}
               >
-                {listening ? <ThinkingOrb state="listening" size={32} /> : null}
-                <TextInput
+                {listening ? (
+                  <View style={{ marginBottom: 4 }}>
+                    <ThinkingOrb state="listening" size={32} />
+                  </View>
+                ) : null}
+                <GrowingInput
                   ref={input}
                   value={text}
                   onChangeText={setText}
+                  onSubmit={() => send(text)}
+                  color={c.text}
                   placeholder={listening ? 'Listening…' : (setup.placeholder ?? (setup.active ? 'Type your answer…' : 'Ask anything about your money…'))}
                   placeholderTextColor={c.textSecondary}
                   accessibilityLabel="Ask SI a question"
                   returnKeyType="send"
-                  onSubmitEditing={() => send(text)}
                   maxLength={500}
                   autoComplete="off"
-                  style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: c.text }, webInputReset]}
+                  style={{ marginVertical: (40 - INPUT_LINE) / 2 }}
                 />
                 <Press
                   onPress={() => (text.trim() && !listening ? send(text) : dictate())}

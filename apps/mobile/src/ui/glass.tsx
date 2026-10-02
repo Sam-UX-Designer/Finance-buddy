@@ -75,7 +75,9 @@ export function GlassSurface({
     // child, including ones the browser doesn't position (text inputs), so typed text stays visible.
     return (
       <View ref={ref} {...rest} style={[shape, shadow, { zIndex: 0 }, style]}>
-        <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }, material]} />
+        {/* Its own corner radius too: Chrome doesn't always clip a blurred layer to its parent's
+            rounded corners (e.g. when the app is scaled up on big screens). */}
+        <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, borderRadius: radius }, material]} />
         {children}
       </View>
     );

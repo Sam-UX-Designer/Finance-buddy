@@ -10,6 +10,7 @@ import { radius, space } from '@/theme/tokens';
 import { BalanceCards } from '@/features/BalanceCards';
 import { TxnRow } from '@/features/TxnRow';
 import { TransactionsPanel } from '@/features/TransactionsPanel';
+import { SIChatPanel } from '@/features/SIChatPanel';
 import { SendSheet } from '@/features/SendSheet';
 import { Button, IconButton, Toggle } from '@/ui/controls';
 import { EmojiAvatar, IconTile, Money } from '@/ui/display';
@@ -27,6 +28,8 @@ export default function HomeScreen() {
   const [hidden, setHidden] = useState(false);
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Desktop: a question for the chat panel (from a card's "See why"); n counts asks so a repeat still sends.
+  const [chatQuestion, setChatQuestion] = useState<{ q: string; n: number } | undefined>();
   const d = home.data;
   const wide = useWide();
   const contentWidth = useContentWidth();
@@ -67,7 +70,7 @@ export default function HomeScreen() {
       case 'month':
         return <ThisMonth m={d.month} />;
       case 'si':
-        return <SINoticed d={d} />;
+        return <SINoticed d={d} onAsk={wide ? (q) => setChatQuestion((p) => ({ q, n: (p?.n ?? 0) + 1 })) : undefined} />;
       case 'investments':
         return d.investments ? <InvestmentsCard inv={d.investments} hidden={hidden} /> : null;
       case 'upcoming':
@@ -235,8 +238,14 @@ export default function HomeScreen() {
             </ScrollView>
             {editBar}
           </View>
-          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg }}>
-            <TransactionsPanel />
+          {/* Right: chat with Super Intelligence on top, every transaction below. */}
+          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg, gap: space.lg }}>
+            <View style={{ flex: 1, minHeight: 300 }}>
+              <SIChatPanel question={chatQuestion} />
+            </View>
+            <View style={{ flex: 1.2, minHeight: 320 }}>
+              <TransactionsPanel />
+            </View>
           </View>
         </View>
         <SendSheet visible={sending} onClose={() => setSending(false)} />
@@ -531,7 +540,7 @@ function MonthTile({ label, value, color, bg, icon, onPress }: { label: string; 
   );
 }
 
-function SINoticed({ d }: { d: HomeDTO }) {
+function SINoticed({ d, onAsk }: { d: HomeDTO; onAsk?: (q: string) => void }) {
   const { c } = useTheme();
   const i = d.insight;
   return (
@@ -551,7 +560,7 @@ function SINoticed({ d }: { d: HomeDTO }) {
       </Row>
       {i ? (
         <Press
-          onPress={() => router.push({ pathname: '/(tabs)/si', params: { q: i.question } })}
+          onPress={() => (onAsk ? onAsk(i.question) : router.push({ pathname: '/(tabs)/si', params: { q: i.question } }))}
           accessibilityRole="button"
           accessibilityLabel="See why"
           style={{ alignSelf: 'flex-end', marginTop: space.sm }}

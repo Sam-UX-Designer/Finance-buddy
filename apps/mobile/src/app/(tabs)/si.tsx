@@ -2,12 +2,13 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, CircleCheck, CircleAlert, History, Info, Mic, SquarePen, X } from 'lucide-react-native';
-import { greetingFor, type BriefItem, type SIMessageDTO } from '@finance-buddy/core';
+import { ArrowUp, CircleAlert, History, Mic, SquarePen, X } from 'lucide-react-native';
+import { greetingFor } from '@finance-buddy/core';
 import { errorMessage } from '@/lib/api';
 import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/queries';
 import { storage } from '@/lib/storage';
 import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
+import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from '@/features/SIMessages';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -421,8 +422,6 @@ const HEADER_H = 60;
 /** Desktop chat history column width. */
 const HISTORY_W = 300;
 const SETUP_LATER_KEY = 'fb.si.setupLater';
-/** "Update my numbers", "change my income", "set up my profile"… start SI's setup questions. */
-const UPDATE_NUMBERS = /\b(update|change|edit|set ?up|redo)\b.*\b(numbers|income|salary|assumptions?|profile|spending|buffer)\b/i;
 const INPUT_H = 52;
 const SUGGEST_H = 46;
 
@@ -430,31 +429,6 @@ interface SpeechRec {
   lang: string;
   onresult: (e: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void;
   start: () => void;
-}
-
-function BriefLine({ item }: { item: BriefItem }) {
-  const { c } = useTheme();
-  const Icon = item.tone === 'attention' ? CircleAlert : item.tone === 'positive' ? CircleCheck : Info;
-  const color = item.tone === 'attention' ? c.warning : item.tone === 'positive' ? c.positive : c.info;
-  return (
-    <Row gap={space.sm} style={{ alignItems: 'flex-start' }}>
-      <Icon size={16} color={color} style={{ marginTop: 2 }} />
-      <T v="small" style={{ flex: 1 }}>
-        {item.text}
-      </T>
-    </Row>
-  );
-}
-
-function UserBubble({ text }: { text: string }) {
-  const { c } = useTheme();
-  return (
-    <View style={{ alignSelf: 'flex-end', maxWidth: '85%', backgroundColor: c.primary, borderRadius: radius.lg, borderBottomRightRadius: 6, paddingHorizontal: 14, paddingVertical: 10 }}>
-      <T v="body" color={c.primaryText}>
-        {text}
-      </T>
-    </View>
-  );
 }
 
 function SetupBubble({ l }: { l: SetupLine }) {
@@ -472,29 +446,6 @@ function SetupBubble({ l }: { l: SetupLine }) {
             </T>
           </Row>
         ))}
-      </View>
-    </FadeIn>
-  );
-}
-
-function Message({ m }: { m: SIMessageDTO }) {
-  const { c } = useTheme();
-  if (m.role === 'user') return <UserBubble text={m.text} />;
-  return (
-    <FadeIn>
-      <View style={{ gap: space.sm }}>
-        <T v="body">{m.text}</T>
-        {m.bullets.map((b, i) => (
-          <Row key={i} gap={space.sm} style={{ alignItems: 'flex-start' }}>
-            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textSecondary, marginTop: 9 }} />
-            <T v="body" style={{ flex: 1 }}>
-              {b}
-            </T>
-          </Row>
-        ))}
-        <T v="caption" tone="tertiary">
-          {m.insufficient ? 'Based on the data available so far.' : 'Calculated from your connected accounts.'}
-        </T>
       </View>
     </FadeIn>
   );

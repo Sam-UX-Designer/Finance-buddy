@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -22,7 +22,7 @@ import { motion, radius, space } from '@/theme/tokens';
 import { ApiRequestError, errorMessage } from '@/lib/api';
 import { Button, IconButton } from './controls';
 import { GlassSurface } from './glass';
-import { Press, Row, T } from './primitives';
+import { InSection, Press, Row, T } from './primitives';
 
 export const PAGE_X = space.xl;
 /** Content width cap on phones and narrow windows. */
@@ -36,15 +36,56 @@ export const WIDE_PAGE_X = 32;
 /** Widest the content area grows on very large monitors (tab screens fill the rest of the window). */
 export const WIDE_CONTENT_MAX = 1680;
 
+/**
+ * Desktop web: the layout is designed at DESIGN_W. A wider window shows the same design scaled up
+ * evenly (like scaling a frame in Figma): everything gets proportionally bigger and fills the
+ * screen, instead of the layout stretching or leaving empty space. Narrower windows lay out as usual.
+ */
+export const DESIGN_W = 1440;
+const MAX_SCALE = 2;
+
+/** The size screens lay out in (the design size when scaled) and the scale applied on top. */
+export interface Viewport {
+  width: number;
+  height: number;
+  scale: number;
+}
+const ViewportContext = createContext<Viewport | null>(null);
+
+export function useViewport(): Viewport {
+  const ctx = useContext(ViewportContext);
+  const { width, height } = useWindowDimensions();
+  return ctx ?? { width, height, scale: 1 };
+}
+
+/** Wraps the whole app; on wide desktop windows it lays the app out at DESIGN_W and scales it to fit. */
+export function ScaledRoot({ children }: { children: ReactNode }) {
+  const { width, height } = useWindowDimensions();
+  const scale = Platform.OS === 'web' && width > DESIGN_W ? Math.min(width / DESIGN_W, MAX_SCALE) : 1;
+  const value = useMemo(() => ({ width: width / scale, height: height / scale, scale }), [width, height, scale]);
+  return (
+    <ViewportContext.Provider value={value}>
+      <View style={scale === 1 ? { flex: 1 } : ({ width: value.width, height: value.height, transform: [{ scale }], transformOrigin: '0 0' } as ViewStyle)}>{children}</View>
+    </ViewportContext.Provider>
+  );
+}
+
 /** True when the app runs as a desktop-width web app (left sidebar instead of the bottom bar). */
 export function useWide(): boolean {
-  const { width } = useWindowDimensions();
+  const { width } = useViewport();
   return Platform.OS === 'web' && width >= 1024;
+}
+
+/** A barely-there lift for white desktop cards (web only; dark mode relies on its borders instead). */
+export function useSoftShadow(): ViewStyle | null {
+  const { scheme } = useTheme();
+  if (Platform.OS !== 'web' || scheme === 'dark') return null;
+  return { boxShadow: '0 1px 2px rgba(10,10,11,0.04), 0 8px 24px rgba(10,10,11,0.04)' } as unknown as ViewStyle;
 }
 
 /** Width available to a screen next to the sidebar in the wide web layout (the window width elsewhere). */
 export function useContentWidth(): number {
-  const { width } = useWindowDimensions();
+  const { width } = useViewport();
   return Math.min(useWide() ? width - SIDEBAR_W : width, WIDE_CONTENT_MAX);
 }
 
@@ -213,6 +254,8 @@ export function Sheet({
   const webBottom = useWebCoveredBottom(visible);
   // Desktop web: a centred dialog instead of a sheet rising from the bottom of a large window.
   const dialog = useWide();
+  // Sheets open outside the scaled app, so a dialog applies the app's scale itself.
+  const vp = useViewport();
   const y = useRef(new Animated.Value(40)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -226,6 +269,8 @@ export function Sheet({
   }, [visible, reduceMotion, y, opacity]);
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      {/* A sheet opened from inside a desktop section card still draws its own cards normally. */}
+      <InSection.Provider value={false}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View style={{ flex: 1, backgroundColor: c.overlay, opacity }}>
           <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Dismiss" />
@@ -262,7 +307,14 @@ export function Sheet({
             radius={radius.xl}
             style={
               dialog
-                ? { width: '100%', maxWidth: MAX_WIDTH, maxHeight: '100%', paddingTop: space.sm, paddingBottom: space.lg }
+                ? {
+                    width: '100%',
+                    maxWidth: MAX_WIDTH,
+                    maxHeight: (vp.height * vp.scale - space.xxxl * 2) / vp.scale,
+                    paddingTop: space.sm,
+                    paddingBottom: space.lg,
+                    transform: [{ scale: vp.scale }],
+                  }
                 : {
                     width: '100%',
                     maxWidth: MAX_WIDTH,
@@ -300,6 +352,7 @@ export function Sheet({
           </GlassSurface>
         </Animated.View>
       </KeyboardAvoidingView>
+      </InSection.Provider>
     </Modal>
   );
 }

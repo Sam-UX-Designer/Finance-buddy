@@ -13,6 +13,7 @@ import { Button, Chip, IconButton, Segmented, TextField } from '@/ui/controls';
 import { EmojiAvatar, ListRow, Pill } from '@/ui/display';
 import { Banner, EmptyState, ErrorState, FadeIn, LoadingState, Screen, Sheet, useContentWidth, useWide, WIDE_PAGE_X } from '@/ui/layout';
 import { Card, Divider, Press, ProgressBar, Row, SectionTitle, T } from '@/ui/primitives';
+import { Icon3D, Section } from '@/ui/section';
 
 type Tab = 'goals' | 'forecast' | 'budget';
 
@@ -27,17 +28,15 @@ export default function PlanScreen() {
   const pageWidth = useContentWidth();
   // Desktop: all three side by side when there's room, otherwise goals beside forecast and budget.
   const three = pageWidth - WIDE_PAGE_X * 2 >= 1000;
-  const column = (title: string, body: React.ReactNode) => (
-    <View key={title}>
-      <T v="section" accessibilityRole="header" style={{ marginBottom: space.md }}>
-        {title}
-      </T>
+  // Desktop: each part is a section card like Home (3D icon, title, subtitle).
+  const column = (emoji: string, title: string, subtitle: string, body: React.ReactNode) => (
+    <Section key={title} icon={<Icon3D emoji={emoji} size={40} />} title={title} subtitle={subtitle}>
       {body}
-    </View>
+    </Section>
   );
-  const goals = column('Goals', <Goals plan={plan} />);
-  const fc = column('Forecast', <Forecast q={forecast} />);
-  const budget = column('Budget', <Budgets q={budgets} />);
+  const goals = column('🎯', 'Goals', 'What you’re saving for', <Goals plan={plan} />);
+  const fc = column('📈', 'Forecast', 'Where your balance is heading', <Forecast q={forecast} />);
+  const budget = column('💰', 'Budget', 'Monthly limits by category', <Budgets q={budgets} />);
   return (
     <Screen
       refreshing={refreshing}
@@ -62,7 +61,7 @@ export default function PlanScreen() {
           ) : (
             <>
               <View style={{ flex: 1, minWidth: 0 }}>{goals}</View>
-              <View style={{ flex: 1, minWidth: 0, gap: space.xxl }}>
+              <View style={{ flex: 1, minWidth: 0, gap: space.xl }}>
                 {fc}
                 {budget}
               </View>
@@ -327,7 +326,7 @@ function Budgets({ q }: { q: ReturnType<typeof useBudgets> }) {
       <SectionTitle>Add a budget</SectionTitle>
       <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
         {d.unbudgeted.slice(0, 10).map((u) => (
-          <Chip key={u.categoryId} label={`${u.emoji} ${u.categoryName}`} onPress={() => open(u.categoryId)} />
+          <Chip key={u.categoryId} label={u.categoryName} icon={<Icon3D emoji={u.emoji} size={18} />} onPress={() => open(u.categoryId)} />
         ))}
       </Row>
       <Sheet

@@ -2,25 +2,26 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, SectionList, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, ChartLine, HandCoins, LayoutGrid, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { addMonthsToKey, formatMonthKey, istDateKey, istMonthKey, SPEND_CATEGORY_IDS, category, type ActivityFilter, type CategoryId } from '@finance-buddy/core';
 import { useAccounts, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
-import { Button, Chip, ChipRow, IconButton, webInputReset } from '@/ui/controls';
+import { Button, Chip, ChipRow, IconButton, webInputReset, type ChipOption } from '@/ui/controls';
+import { Icon3D, Section } from '@/ui/section';
 import { EmptyState, ErrorState, LoadingState, MAX_WIDTH, PAGE_X, Sheet, TabHeader, useContentWidth, useTabBarInset, useWide, WIDE_MAX_WIDTH, WIDE_PAGE_X } from '@/ui/layout';
 import { Row, T } from '@/ui/primitives';
 import { groupByDay, TxnRow } from '@/features/TxnRow';
 import { TransactionDetail } from '@/features/TransactionDetail';
 import { DateRangeCalendar, rangeLabel, shiftDay } from '@/ui/DateRangeCalendar';
 
-const FILTERS: { key: ActivityFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'expenses', label: 'Expenses' },
-  { key: 'income', label: 'Income' },
-  { key: 'investments', label: 'Investments' },
-  { key: 'loans', label: 'Loans' },
-  { key: 'transfers', label: 'Transfers' },
+const FILTERS: ChipOption<ActivityFilter>[] = [
+  { key: 'all', label: 'All', icon: LayoutGrid },
+  { key: 'expenses', label: 'Expenses', icon: ArrowUpRight, color: '#F43F5E' },
+  { key: 'income', label: 'Income', icon: ArrowDownLeft, color: '#22C55E' },
+  { key: 'investments', label: 'Investments', icon: ChartLine, color: '#3B82F6' },
+  { key: 'loans', label: 'Loans', icon: HandCoins, color: '#A855F7' },
+  { key: 'transfers', label: 'Transfers', icon: ArrowLeftRight, color: '#0EA5E9' },
 ];
 
 /**
@@ -30,7 +31,7 @@ const FILTERS: { key: ActivityFilter; label: string }[] = [
 export default function ActivityScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ filter?: ActivityFilter; month?: string; accountId?: string }>();
+  const params = useLocalSearchParams<{ filter?: ActivityFilter; month?: string; accountId?: string; categoryId?: CategoryId }>();
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [query, setQuery] = useState('');
   const [q, setQ] = useState('');
@@ -52,7 +53,8 @@ export default function ActivityScreen() {
       setRange(undefined);
     }
     if (params.accountId) setAccountId(params.accountId);
-  }, [params.filter, params.month, params.accountId]);
+    if (params.categoryId) setCategoryId(params.categoryId);
+  }, [params.filter, params.month, params.accountId, params.categoryId]);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(query.trim()), 250);
@@ -69,8 +71,8 @@ export default function ActivityScreen() {
 
   const header = (
     <View style={wide ? null : { width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: PAGE_X }}>
-      <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />
-      <Row style={{ backgroundColor: c.surface, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
+      {wide ? null : <TabHeader title="Transactions" right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />} />}
+      <Row style={{ backgroundColor: wide ? c.surfaceMuted : c.surface, borderRadius: radius.md, paddingHorizontal: space.md, height: 44, gap: space.sm }}>
         <Search size={18} color={c.textTertiary} />
         <TextInput
           value={query}
@@ -122,16 +124,19 @@ export default function ActivityScreen() {
             const last = index === section.data.length - 1;
             return (
               <View
-                style={{
-                  backgroundColor: c.surface,
-                  borderTopLeftRadius: first ? radius.lg : 0,
-                  borderTopRightRadius: first ? radius.lg : 0,
-                  borderBottomLeftRadius: last ? radius.lg : 0,
-                  borderBottomRightRadius: last ? radius.lg : 0,
-                  paddingHorizontal: space.md,
-                  paddingTop: first ? 4 : 0,
-                  paddingBottom: last ? 4 : 0,
-                }}
+                style={[
+                  {
+                    backgroundColor: c.surface,
+                    borderTopLeftRadius: first ? radius.lg : 0,
+                    borderTopRightRadius: first ? radius.lg : 0,
+                    borderBottomLeftRadius: last ? radius.lg : 0,
+                    borderBottomRightRadius: last ? radius.lg : 0,
+                    paddingHorizontal: space.md,
+                    paddingTop: first ? 4 : 0,
+                    paddingBottom: last ? 4 : 0,
+                  },
+                  wide ? { borderColor: c.border, borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: first ? 1 : 0, borderBottomWidth: last ? 1 : 0 } : null,
+                ]}
               >
                 {first ? null : <View style={{ height: 1, backgroundColor: c.divider, marginLeft: 54 }} />}
                 <TxnRow t={item} onPress={wide ? () => setPicked(item.id) : undefined} selected={wide ? item.id === selectedId : undefined} />
@@ -180,24 +185,30 @@ export default function ActivityScreen() {
   if (wide) {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: pageWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X }}>
-          <View style={{ flex: 1.15, minWidth: 0 }}>
+        {/* Desktop: the same section cards as Home. The list on the left, the picked transaction on the right. */}
+        <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: pageWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X, paddingVertical: space.lg }}>
+          <Section
+            fill
+            style={{ flex: 1.15, minWidth: 0 }}
+            icon={<Icon3D emoji="💵" size={40} />}
+            title="Transactions"
+            subtitle="Every rupee in and out"
+            right={<IconButton icon={SlidersHorizontal} label="Filter transactions" dot={activeFilters > 0} onPress={() => setSheet(true)} />}
+          >
             {header}
-            {list}
-          </View>
-          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg }}>
-            <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: radius.xl, overflow: 'hidden' }} role="region" aria-label="Transaction details">
-              {selectedId ? (
-                <ScrollView contentContainerStyle={{ paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: space.xxl }}>
-                  <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
-                    <TransactionDetail key={selectedId} id={selectedId} />
-                  </View>
-                </ScrollView>
-              ) : (
-                <EmptyState title="Nothing to show yet" body="Pick a transaction on the left to see its details here." />
-              )}
-            </View>
-          </View>
+            <View style={{ flex: 1, minHeight: 0 }}>{list}</View>
+          </Section>
+          <Section fill style={{ flex: 1, minWidth: 0 }} icon={<Icon3D emoji="🧾" size={40} />} title="Details" subtitle="The transaction you picked">
+            {selectedId ? (
+              <ScrollView contentContainerStyle={{ paddingBottom: space.xl }}>
+                <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+                  <TransactionDetail key={selectedId} id={selectedId} />
+                </View>
+              </ScrollView>
+            ) : (
+              <EmptyState title="Nothing to show yet" body="Pick a transaction on the left to see its details here." />
+            )}
+          </Section>
         </View>
         {filterSheet}
       </View>
@@ -316,7 +327,7 @@ function FilterSheet({
       </T>
       <Row gap={space.sm} style={{ flexWrap: 'wrap' }}>
         {SPEND_CATEGORY_IDS.map((id) => (
-          <Chip key={id} label={`${category(id).emoji} ${category(id).name}`} selected={f.categoryId === id} onPress={() => set({ categoryId: f.categoryId === id ? undefined : id })} />
+          <Chip key={id} label={category(id).name} icon={<Icon3D emoji={category(id).emoji} size={18} />} selected={f.categoryId === id} onPress={() => set({ categoryId: f.categoryId === id ? undefined : id })} />
         ))}
       </Row>
     </Sheet>

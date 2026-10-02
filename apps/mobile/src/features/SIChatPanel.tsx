@@ -9,14 +9,17 @@ import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space } from '@/theme/tokens';
 import { webInputReset } from '@/ui/controls';
-import { ErrorState, Skeleton } from '@/ui/layout';
+import { ErrorState, Skeleton, useSoftShadow } from '@/ui/layout';
 import { Press, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
 import { PromptPills } from './PromptPills';
 import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from './SIMessages';
 
+/** Height of the conversation area; longer chats scroll inside it. */
+const CHAT_H = 210;
+
 /**
- * Desktop Home, top right: chat with Super Intelligence without leaving Home. It continues the
+ * Desktop Home, Super Intelligence column: chat without leaving Home. It continues the
  * same conversation as the Super Intelligence tab, so "Open full chat" picks up where you are.
  * `question` lets Home ask something for you (a card's "See why"); `n` makes repeats count.
  */
@@ -29,6 +32,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
+  const shadow = useSoftShadow();
   const messages = si.data?.messages ?? [];
 
   const send = async (q: string) => {
@@ -68,85 +72,85 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
   const first = me?.name?.split(' ')[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: radius.xl, overflow: 'hidden' }} role="region" aria-label="Super Intelligence chat">
-      <Row gap={space.md} style={{ paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: space.md }}>
-        <SIOrb size={34} active={!!pending} />
-        <View style={{ flex: 1 }}>
-          <T v="subtitle" accessibilityRole="header">
+    <View style={[{ backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: space.lg, gap: space.lg }, shadow]} role="region" aria-label="Super Intelligence chat">
+      <Row gap={space.md}>
+        <SIOrb size={40} active={!!pending} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T v="subtitle" accessibilityRole="header" numberOfLines={1}>
             Super Intelligence
           </T>
-          <T v="caption" tone="secondary" accessibilityLiveRegion="polite">
+          <T v="small" tone="secondary" accessibilityLiveRegion="polite" numberOfLines={1}>
             {pending ? 'Thinking…' : 'Ask anything about your money'}
           </T>
         </View>
-        <Press onPress={() => router.navigate('/(tabs)/si')} accessibilityRole="link" accessibilityLabel="Open the full Super Intelligence chat" hitSlop={8}>
-          <Row gap={6}>
-            <Maximize2 size={13} color={c.textSecondary} />
-            <T v="smallMedium" tone="secondary">
-              Open full chat
-            </T>
-          </Row>
+        {/* Opens the full chat; an icon so the subtitle keeps its room in a narrow column. */}
+        <Press
+          onPress={() => router.navigate('/(tabs)/si')}
+          accessibilityRole="link"
+          accessibilityLabel="Open the full Super Intelligence chat"
+          hitSlop={8}
+          style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Maximize2 size={14} color={c.textSecondary} />
         </Press>
       </Row>
 
-      {si.error && !si.data ? (
-        <View style={{ flex: 1 }}>
+      {/* The conversation, suggested questions and the question box sit together in one bordered block. */}
+      <View style={{ borderWidth: 1, borderColor: c.border, borderRadius: radius.lg, padding: space.md, gap: space.md }}>
+        {si.error && !si.data ? (
           <ErrorState error={si.error} onRetry={() => si.refetch()} />
-        </View>
-      ) : !si.data ? (
-        <View style={{ flex: 1, paddingHorizontal: space.xl, gap: space.md }} accessibilityLabel="Loading Super Intelligence">
-          <Skeleton height={16} width="70%" />
-          <Skeleton height={16} width="90%" />
-          <Skeleton height={16} width="60%" />
-        </View>
-      ) : (
-        <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.xl, paddingBottom: space.md, gap: space.lg }}>
-          {messages.length === 0 ? (
-            <View style={{ gap: space.sm }}>
-              <T v="bodySemibold">{`${greetingFor(new Date().toISOString())}${first ? `, ${first}` : ''}!`}</T>
-              {si.data.brief.enoughData ? (
-                <>
+        ) : !si.data ? (
+          <View style={{ height: CHAT_H, gap: space.md }} accessibilityLabel="Loading Super Intelligence">
+            <Skeleton height={16} width="70%" />
+            <Skeleton height={16} width="90%" />
+            <Skeleton height={16} width="60%" />
+          </View>
+        ) : (
+          <ScrollView ref={scroll} style={{ height: CHAT_H }} contentContainerStyle={{ gap: space.lg, paddingBottom: space.xs }}>
+            {messages.length === 0 ? (
+              <View style={{ gap: space.sm }}>
+                <T v="bodySemibold">{`${greetingFor(new Date().toISOString())}${first ? `, ${first}` : ''}!`}</T>
+                {si.data.brief.enoughData ? (
+                  <>
+                    <T v="small" tone="secondary">
+                      Here’s what I noticed this week:
+                    </T>
+                    {si.data.brief.items.map((i) => (
+                      <BriefLine key={i.id} item={i} />
+                    ))}
+                  </>
+                ) : (
                   <T v="small" tone="secondary">
-                    Here’s what I noticed this week:
+                    Ask me about your spending, savings or goals. I answer from your own numbers.
                   </T>
-                  {si.data.brief.items.map((i) => (
-                    <BriefLine key={i.id} item={i} />
-                  ))}
-                </>
-              ) : (
-                <T v="small" tone="secondary">
-                  Ask me about your spending, savings or goals. I answer from your own numbers.
-                </T>
-              )}
-            </View>
-          ) : (
-            messages.map((m) => <Message key={m.id} m={m} />)
-          )}
-          {pending ? (
-            <>
-              <UserBubble text={pending} />
-              <Row gap={space.sm}>
-                <ActivityIndicator size="small" color={c.textSecondary} />
-                <T v="small" tone="secondary">
-                  Checking your numbers…
+                )}
+              </View>
+            ) : (
+              messages.map((m) => <Message key={m.id} m={m} />)
+            )}
+            {pending ? (
+              <>
+                <UserBubble text={pending} />
+                <Row gap={space.sm}>
+                  <ActivityIndicator size="small" color={c.textSecondary} />
+                  <T v="small" tone="secondary">
+                    Checking your numbers…
+                  </T>
+                </Row>
+              </>
+            ) : null}
+            {error ? (
+              <Row gap={space.sm} accessibilityLiveRegion="polite">
+                <CircleAlert size={16} color={c.negative} />
+                <T v="small" tone="negative" style={{ flex: 1 }}>
+                  {error}
                 </T>
               </Row>
-            </>
-          ) : null}
-          {error ? (
-            <Row gap={space.sm} accessibilityLiveRegion="polite">
-              <CircleAlert size={16} color={c.negative} />
-              <T v="small" tone="negative" style={{ flex: 1 }}>
-                {error}
-              </T>
-            </Row>
-          ) : null}
-        </ScrollView>
-      )}
-
-      <View style={{ paddingHorizontal: space.lg, paddingBottom: space.lg, paddingTop: space.sm, gap: space.sm, borderTopWidth: 1, borderTopColor: c.divider }}>
+            ) : null}
+          </ScrollView>
+        )}
         {si.data && !pending && prompts.length ? (
-          <PromptPills key={prompts.join('|')} items={prompts} onPick={send} fade={c.surface} padX={space.lg} style={{ marginHorizontal: -space.lg }} />
+          <PromptPills key={prompts.join('|')} items={prompts} onPick={send} fade={c.surface} padX={space.md} style={{ marginHorizontal: -space.md }} />
         ) : null}
         <Row gap={space.sm} style={{ height: 44, borderRadius: 22, paddingLeft: space.lg, paddingRight: 4, backgroundColor: c.surfaceMuted }}>
           <TextInput

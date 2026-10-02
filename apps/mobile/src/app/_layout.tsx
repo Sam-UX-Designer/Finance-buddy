@@ -15,7 +15,7 @@ import { SessionProvider, useSession } from '@/lib/session';
 import { Sidebar } from '@/features/Navigation';
 import { NotificationsPanel } from '@/features/Notifications';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
-import { SIDEBAR_W, useWide } from '@/ui/layout';
+import { ScaledRoot, SIDEBAR_W, useWide } from '@/ui/layout';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -82,13 +82,15 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={client}>
-        <ThemeProvider>
-          <SessionProvider>
-            <Navigator />
-          </SessionProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <ScaledRoot>
+        <QueryClientProvider client={client}>
+          <ThemeProvider>
+            <SessionProvider>
+              <Navigator />
+            </SessionProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </ScaledRoot>
     </SafeAreaProvider>
   );
 }

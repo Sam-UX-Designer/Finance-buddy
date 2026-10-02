@@ -1,23 +1,24 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Building, ChartLine, HandCoins, Info, Landmark, ShieldCheck, type LucideIcon } from 'lucide-react-native';
+import { Building, ChartLine, HandCoins, Info, Landmark, LayoutGrid, Shapes, ShieldCheck, type LucideIcon } from 'lucide-react-native';
 import { formatDate, formatINR, type AssetKind, type HoldingDTO } from '@finance-buddy/core';
 import { useWealth } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { Donut, LineChart } from '@/charts/Charts';
-import { ChipRow, IconButton } from '@/ui/controls';
+import { ChipRow, IconButton, type ChipOption } from '@/ui/controls';
+import { Icon3D, Section } from '@/ui/section';
 import { GainText, IconTile, ListRow, Pill } from '@/ui/display';
 import { Banner, ErrorState, FadeIn, LoadingState, Screen, Sheet, useContentWidth, useWide, WIDE_PAGE_X } from '@/ui/layout';
 import { Card, Divider, Row, SectionTitle, T } from '@/ui/primitives';
 import type { Palette } from '@/theme/tokens';
 
 type Group = 'ALL' | 'INVESTMENTS' | 'BANK' | 'OTHER';
-const GROUPS: { key: Group; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'INVESTMENTS', label: 'Investments' },
-  { key: 'BANK', label: 'Bank' },
-  { key: 'OTHER', label: 'Other' },
+const GROUPS: ChipOption<Group>[] = [
+  { key: 'ALL', label: 'All', icon: LayoutGrid },
+  { key: 'INVESTMENTS', label: 'Investments', icon: ChartLine, color: '#3B82F6' },
+  { key: 'BANK', label: 'Bank', icon: Landmark, color: '#6366F1' },
+  { key: 'OTHER', label: 'Other', icon: Shapes, color: '#F59E0B' },
 ];
 
 function kindStyle(c: Palette, kind: AssetKind): { icon: LucideIcon; color: string; bg: string } {
@@ -34,6 +35,9 @@ function kindStyle(c: Palette, kind: AssetKind): { icon: LucideIcon; color: stri
       return { icon: HandCoins, color: c.loan, bg: c.loanSoft };
   }
 }
+
+/** Small 3D icon for each kind of asset (desktop section headers). */
+const HOLDING_ICON: Record<AssetKind, string> = { MUTUAL_FUNDS: '📊', TERM_DEPOSIT: '🏦', SAVINGS: '💰', EPF: '🛡', RECEIVABLES: '🤝' };
 
 const HOLDING_KIND: Record<AssetKind, HoldingDTO['kind']> = {
   MUTUAL_FUNDS: 'MUTUAL_FUND',
@@ -103,97 +107,93 @@ export default function WealthScreen() {
                   <Banner tone="warning" title="Partial data" body="Some accounts didn't sync, so your net worth may be understated." />
                 </View>
               ) : null}
+              {/* Desktop: the same section cards as Home. Net worth and assets on the left; how it's split and what's inside on the right. */}
               <Row gap={space.xl} style={{ alignItems: 'flex-start' }}>
-                <View style={{ flex: 1.25, minWidth: 0 }}>
-                  <Card style={{ borderRadius: radius.xl, padding: space.xl }}>
-                    <Row style={{ alignItems: 'flex-start', gap: space.md }}>
-                      <View style={{ flex: 1 }}>
-                        <T v="body" tone="secondary">
-                          Total Net Worth
-                        </T>
-                        <T v="display" style={{ marginTop: 6 }} adjustsFontSizeToFit numberOfLines={1}>
-                          {formatINR(d.netWorth, { decimals: 0 })}
-                        </T>
-                        {d.change.changePct != null ? (
-                          <View style={{ marginTop: space.sm }}>
-                            <Pill tone={d.change.change >= 0 ? 'positive' : 'negative'}>{`${d.change.change >= 0 ? '↑' : '↓'} ${Math.abs(d.change.changePct).toFixed(1)}% this year`}</Pill>
-                          </View>
-                        ) : null}
-                      </View>
-                      <View style={{ width: wide ? 240 : 120, marginTop: space.md }}>
-                        <LineChart values={d.trend.map((p) => p.value / 100)} height={wide ? 96 : 70} accessibilityLabel={`Net worth trend over ${d.trend.length} months`} />
-                      </View>
-                    </Row>
-                    <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
-                      {`Since ${formatDate(d.change.sinceDate)}: ${formatINR(d.change.fromMarketAndInterest, { decimals: 0, signed: true })} market & interest · ${formatINR(d.change.fromSavings, { decimals: 0, signed: true })} from your savings`}
-                    </T>
-                  </Card>
-
-                  <View style={{ marginTop: space.xl }}>
-                    <ChipRow options={GROUPS} value={group} onChange={setGroup} />
-                  </View>
-                  <View style={{ marginTop: space.sm }}>
-                    {lines.map((l, i) => {
-                      const s = kindStyle(c, l.kind);
-                      return (
-                        <View key={l.kind}>
-                          {i > 0 ? <Divider inset={52} /> : null}
-                          <ListRow
-                            left={<IconTile icon={s.icon} color={s.color} bg={s.bg} />}
-                            title={l.label}
-                            subtitle={
-                              l.kind === 'RECEIVABLES'
-                                ? 'Owed to you'
-                                : l.invested != null
-                                  ? `Invested ${formatINR(l.invested, { decimals: 0 })}`
-                                  : `${l.accountCount} account${l.accountCount === 1 ? '' : 's'}`
-                            }
-                            right={<T v="bodySemibold">{formatINR(l.value, { decimals: 0 })}</T>}
-                            rightSub={<GainText pct={l.gainPct} />}
-                            onPress={() => setDetail(l.kind)}
-                            selected={wide ? l.kind === shownKind : undefined}
-                            accessibilityLabel={`${l.label}, ${formatINR(l.value, { decimals: 0 })}${l.gainPct != null ? `, return ${l.gainPct}%` : ''}`}
-                          />
-                        </View>
-                      );
-                    })}
-                    {group === 'ALL' || group === 'OTHER' ? (
-                      <T v="caption" tone="tertiary" style={{ marginTop: space.sm }}>
-                        No loans or credit cards connected, so liabilities are ₹0.
-                      </T>
-                    ) : null}
-                  </View>
-                </View>
-                <View style={{ flex: 1, minWidth: 0, gap: space.xl }}>
-                  <Card style={{ borderRadius: radius.xl, padding: space.xl }}>
+                <View style={{ flex: 1.25, minWidth: 0, gap: space.xl }}>
+                  <Section icon={<Icon3D emoji="📈" size={40} />} title="Net worth" subtitle="What you own minus what you owe">
                     <View>
-                      <SectionTitle>Asset Allocation</SectionTitle>
-                      <Row gap={space.xl}>
-                        <Donut
-                          segments={d.allocation.map((a) => ({ value: a.value, color: colors[a.kind] ?? c.textTertiary }))}
-                          accessibilityLabel={d.allocation.map((a) => `${a.label} ${a.pct}%`).join(', ')}
-                        />
-                        <View style={{ flex: 1, gap: space.sm }}>
-                          {d.allocation.map((a) => (
-                            <Row key={a.kind} gap={space.sm}>
-                              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors[a.kind] ?? c.textTertiary }} />
-                              <T v="small" tone="secondary" style={{ flex: 1 }}>
-                                {a.label}
-                              </T>
-                              <T v="smallMedium">{`${Math.round(a.pct)}%`}</T>
-                            </Row>
-                          ))}
+                      <Row style={{ alignItems: 'flex-start', gap: space.md }}>
+                        <View style={{ flex: 1 }}>
+                          <T v="body" tone="secondary">
+                            Total Net Worth
+                          </T>
+                          <T v="display" style={{ marginTop: 6 }} adjustsFontSizeToFit numberOfLines={1}>
+                            {formatINR(d.netWorth, { decimals: 0 })}
+                          </T>
+                          {d.change.changePct != null ? (
+                            <View style={{ marginTop: space.sm }}>
+                              <Pill tone={d.change.change >= 0 ? 'positive' : 'negative'}>{`${d.change.change >= 0 ? '↑' : '↓'} ${Math.abs(d.change.changePct).toFixed(1)}% this year`}</Pill>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={{ width: wide ? 240 : 120, marginTop: space.md }}>
+                          <LineChart values={d.trend.map((p) => p.value / 100)} height={wide ? 96 : 70} accessibilityLabel={`Net worth trend over ${d.trend.length} months`} />
                         </View>
                       </Row>
-                    </View>
-                  </Card>
-                  {shownKind ? (
-                    <Card style={{ borderRadius: radius.xl, paddingHorizontal: space.xl, paddingVertical: space.lg }}>
-                      <T v="section" accessibilityRole="header" style={{ marginBottom: space.xs }}>
-                        {lines.find((l) => l.kind === shownKind)?.label}
+                      <T v="caption" tone="tertiary" style={{ marginTop: space.md }}>
+                        {`Since ${formatDate(d.change.sinceDate)}: ${formatINR(d.change.fromMarketAndInterest, { decimals: 0, signed: true })} market & interest · ${formatINR(d.change.fromSavings, { decimals: 0, signed: true })} from your savings`}
                       </T>
-                      {holdings(shownKind)}
-                    </Card>
+                    </View>
+                  </Section>
+                  <Section icon={<Icon3D emoji="🏦" size={40} />} title="Assets" subtitle="Where your money is">
+                    <ChipRow options={GROUPS} value={group} onChange={setGroup} />
+                    <View>
+                      {lines.map((l, i) => {
+                        const s = kindStyle(c, l.kind);
+                        return (
+                          <View key={l.kind}>
+                            {i > 0 ? <Divider inset={52} /> : null}
+                            <ListRow
+                              left={<IconTile icon={s.icon} color={s.color} bg={s.bg} />}
+                              title={l.label}
+                              subtitle={
+                                l.kind === 'RECEIVABLES'
+                                  ? 'Owed to you'
+                                  : l.invested != null
+                                    ? `Invested ${formatINR(l.invested, { decimals: 0 })}`
+                                    : `${l.accountCount} account${l.accountCount === 1 ? '' : 's'}`
+                              }
+                              right={<T v="bodySemibold">{formatINR(l.value, { decimals: 0 })}</T>}
+                              rightSub={<GainText pct={l.gainPct} />}
+                              onPress={() => setDetail(l.kind)}
+                              selected={wide ? l.kind === shownKind : undefined}
+                              accessibilityLabel={`${l.label}, ${formatINR(l.value, { decimals: 0 })}${l.gainPct != null ? `, return ${l.gainPct}%` : ''}`}
+                            />
+                          </View>
+                        );
+                      })}
+                      {group === 'ALL' || group === 'OTHER' ? (
+                        <T v="caption" tone="tertiary" style={{ marginTop: space.sm }}>
+                          No loans or credit cards connected, so liabilities are ₹0.
+                        </T>
+                      ) : null}
+                    </View>
+                  </Section>
+                </View>
+                <View style={{ flex: 1, minWidth: 0, gap: space.xl }}>
+                  <Section icon={<Icon3D emoji="📊" size={40} />} title="Asset Allocation" subtitle="How your money is split">
+                    <Row gap={space.xl}>
+                      <Donut
+                        segments={d.allocation.map((a) => ({ value: a.value, color: colors[a.kind] ?? c.textTertiary }))}
+                        accessibilityLabel={d.allocation.map((a) => `${a.label} ${a.pct}%`).join(', ')}
+                      />
+                      <View style={{ flex: 1, gap: space.sm }}>
+                        {d.allocation.map((a) => (
+                          <Row key={a.kind} gap={space.sm}>
+                            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors[a.kind] ?? c.textTertiary }} />
+                            <T v="small" tone="secondary" style={{ flex: 1 }}>
+                              {a.label}
+                            </T>
+                            <T v="smallMedium">{`${Math.round(a.pct)}%`}</T>
+                          </Row>
+                        ))}
+                      </View>
+                    </Row>
+                  </Section>
+                  {shownKind ? (
+                    <Section icon={<Icon3D emoji={HOLDING_ICON[shownKind] ?? '💰'} size={40} />} title={lines.find((l) => l.kind === shownKind)?.label ?? 'Holdings'} subtitle="What's inside">
+                      <View>{holdings(shownKind)}</View>
+                    </Section>
                   ) : null}
                 </View>
               </Row>

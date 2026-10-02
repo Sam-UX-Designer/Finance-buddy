@@ -43,6 +43,7 @@ const ICONS: Record<string, ImageSourcePropType> = {
   '💡': require('../../assets/icons3d/lightbulb.png'),
   '🔔': require('../../assets/icons3d/bell.png'),
   '🔒': require('../../assets/icons3d/lock.png'),
+  '📅': require('../../assets/icons3d/calendar.png'),
 };
 
 /** 3D icon for an emoji, ignoring the emoji presentation selector (U+FE0F). */

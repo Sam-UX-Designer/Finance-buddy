@@ -1,24 +1,24 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, View } from 'react-native';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, CalendarClock, ChevronDown, ChevronUp, CircleUserRound, EyeOff, Plus, RefreshCw, SlidersHorizontal, TrendingUp, type LucideIcon } from 'lucide-react-native';
-import { category, formatDate, formatINR, formatINRCompact, type HomeDTO } from '@finance-buddy/core';
+import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, Calendar, CalendarClock, ChevronDown, ChevronRight, ChevronUp, CircleUserRound, Ellipsis, EyeOff, Plus, RefreshCw, SlidersHorizontal, TrendingUp, type LucideIcon } from 'lucide-react-native';
+import { category, formatDate, formatINR, formatINRCompact, formatMonthKey, type HomeDTO } from '@finance-buddy/core';
 import { haptics } from '@/lib/haptics';
-import { useHome, useSync } from '@/lib/queries';
+import { useBudgets, useHome, useSync, useTxns } from '@/lib/queries';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, space } from '@/theme/tokens';
 import { BalanceCards } from '@/features/BalanceCards';
 import { TxnRow } from '@/features/TxnRow';
-import { TransactionsPanel } from '@/features/TransactionsPanel';
 import { SIChatPanel } from '@/features/SIChatPanel';
 import { SendSheet } from '@/features/SendSheet';
 import { Button, IconButton, Toggle } from '@/ui/controls';
 import { EmojiAvatar, IconTile, Money } from '@/ui/display';
-import { Banner, ErrorState, FadeIn, PAGE_X, Screen, Skeleton, useContentWidth, useTabBarInset, useWide, WIDE_PAGE_X } from '@/ui/layout';
+import { Banner, ErrorState, FadeIn, PAGE_X, Screen, Skeleton, useContentWidth, useSoftShadow, useTabBarInset, useWide, WIDE_PAGE_X } from '@/ui/layout';
 import { GlassSurface } from '@/ui/glass';
 import { Card, LongPressContext, Press, Row, SectionTitle, T } from '@/ui/primitives';
 import { useHomeLayout, useUpdatedWidgets, WIDGET_TITLES, type WidgetId } from '@/features/homeLayout';
 import { SIOrb } from '@/ui/SIOrb';
+import { Icon3D, innerBlock, LinkAction, Section, SubHeader } from '@/ui/section';
 
 /** Home answers: "How am I doing financially right now?" (Blueprint §8). */
 export default function HomeScreen() {
@@ -66,7 +66,7 @@ export default function HomeScreen() {
     if (!d) return null;
     switch (id) {
       case 'today':
-        return <TodaySpending t={d.today} />;
+        return <TodaySpending t={d.today} expandable={wide} />;
       case 'month':
         return <ThisMonth m={d.month} />;
       case 'si':
@@ -196,10 +196,19 @@ export default function HomeScreen() {
         </View>
       </Row>
       {wide ? (
-        // Desktop has no pull-to-refresh, so refreshing is a button. Notifications and settings live in the sidebar.
-        <View style={{ width: 40, height: 40, marginRight: -8, alignItems: 'center', justifyContent: 'center' }}>
-          {sync.isPending || home.isRefetching ? <ActivityIndicator color={c.textSecondary} accessibilityLabel="Refreshing" /> : <IconButton icon={RefreshCw} label="Refresh your accounts" onPress={refresh} />}
-        </View>
+        // Desktop: the main actions sit up here. There's no pull-to-refresh, so refreshing is a button;
+        // notifications and settings live in the sidebar.
+        <Row gap={space.sm} style={{ alignSelf: 'center' }}>
+          {d ? (
+            <>
+              <Button label="Send" size="md" onPress={() => setSending(true)} style={{ paddingHorizontal: space.xl }} />
+              <Button label="View Accounts" variant="secondary" size="md" onPress={() => router.push('/accounts')} style={{ paddingHorizontal: space.xl }} />
+            </>
+          ) : null}
+          <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+            {sync.isPending || home.isRefetching ? <ActivityIndicator color={c.textSecondary} accessibilityLabel="Refreshing" /> : <IconButton icon={RefreshCw} label="Refresh your accounts" onPress={refresh} />}
+          </View>
+        </Row>
       ) : (
         <Row style={{ marginRight: -8 }}>
           <IconButton icon={Bell} label={d?.unreadNotifications ? `Notifications, ${d.unreadNotifications} unread` : 'Notifications'} dot={!!d?.unreadNotifications} onPress={() => router.push('/notifications')} />
@@ -225,29 +234,93 @@ export default function HomeScreen() {
     );
 
   if (wide) {
-    // Desktop: everything from the phone Home in one column on the left, every transaction on the right.
-    const available = contentWidth - WIDE_PAGE_X * 2 - space.xl;
-    const leftW = available < 900 ? Math.round(available / 2) : Math.max(440, Math.min(620, Math.round(available * 0.47)));
+    // Desktop: every bank card in one row across the top, then three equal columns: This Month,
+    // Spending and Super Intelligence (two columns on narrower windows).
+    const threeColumns = contentWidth - WIDE_PAGE_X * 2 >= 1040;
+    const toActivity = (params: Record<string, string>) => router.push({ pathname: '/(tabs)/activity', params });
+    const thisMonth = d ? (
+      <Section
+        icon={<Icon3D emoji="📅" size={44} />}
+        title="This Month"
+        subtitle="Your money at a glance"
+        right={
+          <Press onPress={() => toActivity({ month: d.month.key })} accessibilityRole="button" accessibilityLabel={`${formatMonthKey(d.month.key)} transactions`} style={{ height: 32, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, paddingHorizontal: space.sm, justifyContent: 'center' }}>
+            <Row gap={6}>
+              <Calendar size={14} color={c.textSecondary} />
+              <T v="smallMedium">{formatMonthKey(d.month.key, 'short')}</T>
+            </Row>
+          </Press>
+        }
+      >
+        <MonthMetrics m={d.month} />
+        {d.investments ? (
+          <View>
+            <SubHeader title="Investments" action={{ label: 'Details', onPress: () => router.push('/(tabs)/wealth') }} />
+            <InvestmentsCard inv={d.investments} hidden={hidden} inner />
+          </View>
+        ) : null}
+        {d.wealth ? (
+          <View>
+            <SubHeader title="Net worth" action={{ label: 'Details', onPress: () => router.push('/(tabs)/wealth') }} />
+            <NetWorthCard w={d.wealth} hidden={hidden} inner />
+          </View>
+        ) : null}
+      </Section>
+    ) : null;
+    const spendingSection = d ? (
+      <Section icon={<Icon3D emoji="🛍" size={40} />} title="Spending" subtitle="Track all your expenses" right={<LinkAction label="See all" onPress={() => toActivity({ filter: 'expenses' })} />}>
+        <TodaySpending t={d.today} expandable inner />
+        <View>
+          <SubHeader title="Spending Insights" note="This month" />
+          <SINoticed d={d} inner onAsk={(q) => setChatQuestion((p) => ({ q, n: (p?.n ?? 0) + 1 }))} />
+        </View>
+        <CategorySpend />
+      </Section>
+    ) : null;
+    const intelligence = d ? (
+      <>
+        <SIChatPanel question={chatQuestion} />
+        <Section title="Upcoming Payments" right={<LinkAction label="View all" onPress={() => router.push('/upcoming')} />}>
+          <UpcomingList u={d.upcoming} />
+        </Section>
+      </>
+    ) : null;
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <View style={{ flex: 1, flexDirection: 'row', gap: space.xl, width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X }}>
-          <View style={{ width: leftW }}>
-            <ScrollView contentContainerStyle={{ paddingBottom: space.xxxl }}>
-              {greetingRow}
-              {body}
-            </ScrollView>
-            {editBar}
-          </View>
-          {/* Right: chat with Super Intelligence on top, every transaction below. */}
-          <View style={{ flex: 1, minWidth: 0, paddingVertical: space.lg, gap: space.lg }}>
-            <View style={{ flex: 1, minHeight: 300 }}>
-              <SIChatPanel question={chatQuestion} />
-            </View>
-            <View style={{ flex: 1.2, minHeight: 320 }}>
-              <TransactionsPanel />
-            </View>
-          </View>
-        </View>
+        <ScrollView contentContainerStyle={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', paddingHorizontal: WIDE_PAGE_X, paddingBottom: space.xxxl }}>
+          {greetingRow}
+          {home.error && !d ? (
+            <ErrorState error={home.error} onRetry={() => home.refetch()} />
+          ) : !d ? (
+            <HomeSkeleton />
+          ) : (
+            <>
+              <SyncNotice d={d} />
+              <FadeIn style={{ marginTop: space.lg }}>
+                <BalanceCards strip total={d.balance.total} accounts={d.balance.accounts} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} />
+              </FadeIn>
+              {/* Three equal columns: what's happening with my money, where it's going, and what Finance Buddy understands. */}
+              <Row gap={space.xl} style={{ alignItems: 'flex-start', marginTop: space.lg }}>
+                {threeColumns ? (
+                  [thisMonth, spendingSection, intelligence].map((col, i) => (
+                    <View key={i} style={{ flex: 1, minWidth: 0, gap: space.xl }}>
+                      {col}
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    <View style={{ flex: 1, minWidth: 0, gap: space.xl }}>{thisMonth}</View>
+                    <View style={{ flex: 1, minWidth: 0, gap: space.xl }}>
+                      {spendingSection}
+                      {intelligence}
+                    </View>
+                  </>
+                )}
+              </Row>
+            </>
+          )}
+        </ScrollView>
+        {editBar}
         <SendSheet visible={sending} onClose={() => setSending(false)} />
       </View>
     );
@@ -373,12 +446,44 @@ function EditButton({ icon: Icon, label, onPress, disabled }: { icon: LucideIcon
 
 function ThisMonth({ m }: { m: HomeDTO['month'] }) {
   const { c } = useTheme();
+  // Three tiles side by side; in a narrow desktop column they stack as rows so amounts never get cut.
+  const [width, setWidth] = useState(0);
+  const rows = width > 0 && width < 300;
+  const tiles = [
+    { label: 'Income', value: m.income, color: c.positive, bg: c.positiveSoft, icon: <ArrowDownLeft size={14} color={c.positive} />, filter: 'income' },
+    { label: 'Spent', value: m.spent, color: c.negative, bg: c.negativeSoft, icon: <ArrowUpRight size={14} color={c.negative} />, filter: 'expenses' },
+    { label: 'Invested', value: m.invested, color: c.text, bg: c.surfaceMuted, icon: <TrendingUp size={14} color={c.textSecondary} />, filter: 'investments' },
+  ] as const;
+  const open = (filter: string) => router.push({ pathname: '/(tabs)/activity', params: { filter, month: m.key } });
+  if (rows) {
+    return (
+      <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        <Card style={{ paddingVertical: space.xs }}>
+          {tiles.map((t, i) => (
+            <Press key={t.label} onPress={() => open(t.filter)} accessibilityRole="button" accessibilityLabel={`${t.label} this month: ${formatINR(t.value)}`} scaleTo={0.99}>
+              <Row gap={space.sm} style={{ paddingVertical: space.sm, borderTopWidth: i ? 1 : 0, borderTopColor: c.divider }}>
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>{t.icon}</View>
+                <T v="small" color={t.color === c.text ? c.textSecondary : t.color} style={{ flex: 1 }}>
+                  {t.label}
+                </T>
+                <T v="bodySemibold" color={t.color}>
+                  {formatINR(t.value, { decimals: 0 })}
+                </T>
+              </Row>
+            </Press>
+          ))}
+        </Card>
+      </View>
+    );
+  }
   return (
-    <Row gap={space.sm}>
-      <MonthTile label="Income" value={m.income} color={c.positive} bg={c.positiveSoft} icon={<ArrowDownLeft size={14} color={c.positive} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'income', month: m.key } })} />
-      <MonthTile label="Spent" value={m.spent} color={c.negative} bg={c.negativeSoft} icon={<ArrowUpRight size={14} color={c.negative} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses', month: m.key } })} />
-      <MonthTile label="Invested" value={m.invested} color={c.text} bg={c.surfaceMuted} icon={<TrendingUp size={14} color={c.textSecondary} />} onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'investments', month: m.key } })} />
-    </Row>
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      <Row gap={space.sm}>
+        {tiles.map((t) => (
+          <MonthTile key={t.label} label={t.label} value={t.value} color={t.color} bg={t.bg} icon={t.icon} onPress={() => open(t.filter)} />
+        ))}
+      </Row>
+    </View>
   );
 }
 
@@ -412,12 +517,12 @@ function Upcoming({ u }: { u: HomeDTO['upcoming'] }) {
 }
 
 /** Investments at a glance: current value and returns so far. */
-function InvestmentsCard({ inv, hidden }: { inv: NonNullable<HomeDTO['investments']>; hidden: boolean }) {
+function InvestmentsCard({ inv, hidden, inner }: { inv: NonNullable<HomeDTO['investments']>; hidden: boolean; inner?: boolean }) {
   const { c } = useTheme();
   const up = inv.gain >= 0;
   return (
     <Press onPress={() => router.push('/(tabs)/wealth')} accessibilityRole="button" accessibilityLabel={hidden ? 'Investments, hidden. Open Wealth' : `Investments worth ${formatINR(inv.value)}. Open Wealth`} scaleTo={0.99}>
-      <Card>
+      <Card style={inner ? innerBlock(c) : undefined}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <View>
             <T v="small" tone="secondary">
@@ -438,7 +543,8 @@ function InvestmentsCard({ inv, hidden }: { inv: NonNullable<HomeDTO['investment
         </Row>
         <View style={{ marginTop: space.md, gap: 10 }}>
           {inv.lines.map((l) => (
-            <Row key={l.kind} style={{ justifyContent: 'space-between' }}>
+            <Row key={l.kind} gap={inner ? space.sm : 0} style={{ justifyContent: 'space-between' }}>
+              {inner ? <Icon3D emoji={INVESTMENT_ICON[l.kind] ?? '💰'} size={20} /> : null}
               <T v="small" tone="secondary" style={{ flex: 1 }}>
                 {l.label}
               </T>
@@ -456,11 +562,12 @@ function InvestmentsCard({ inv, hidden }: { inv: NonNullable<HomeDTO['investment
   );
 }
 
-/** Today's spending and the latest three purchases. */
-function TodaySpending({ t }: { t: HomeDTO['today'] }) {
+/** Today's spending and the latest three purchases. On desktop it expands to show more. */
+function TodaySpending({ t, expandable, inner }: { t: HomeDTO['today']; expandable?: boolean; inner?: boolean }) {
   const { c } = useTheme();
+  const [open, setOpen] = useState(false);
   return (
-    <Card style={{ paddingVertical: space.md }}>
+    <Card style={[{ paddingVertical: space.md }, inner ? innerBlock(c) : null]}>
       <Row style={{ justifyContent: 'space-between', paddingBottom: space.sm, borderBottomWidth: t.recent.length ? 1 : 0, borderBottomColor: c.divider }}>
         <T v="small" tone="secondary">
           {t.count ? `Today · ${t.count} purchase${t.count === 1 ? '' : 's'}` : 'Today'}
@@ -476,18 +583,55 @@ function TodaySpending({ t }: { t: HomeDTO['today'] }) {
           Your purchases will show here.
         </T>
       )}
+      {expandable && t.recent.length ? (
+        <>
+          {open ? <MoreSpending skip={t.recent.map((x) => x.id)} /> : null}
+          <Press
+            onPress={() => {
+              haptics.select();
+              setOpen((o) => !o);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            hitSlop={8}
+            style={{ alignSelf: 'center', marginTop: space.sm, paddingVertical: 4, paddingHorizontal: space.md }}
+          >
+            <Row gap={4}>
+              <T v="smallMedium" tone="secondary">
+                {open ? 'Show less' : 'Show more'}
+              </T>
+              {open ? <ChevronUp size={14} color={c.textSecondary} /> : <ChevronDown size={14} color={c.textSecondary} />}
+            </Row>
+          </Press>
+        </>
+      ) : null}
     </Card>
   );
 }
 
+/** The purchases before the latest three (loaded when the spending card is expanded). */
+function MoreSpending({ skip }: { skip: string[] }) {
+  const { c } = useTheme();
+  const txns = useTxns({ filter: 'expenses', q: '' });
+  const items = (txns.data?.pages[0]?.items ?? []).filter((x) => !skip.includes(x.id)).slice(0, 7);
+  if (!txns.data) return <ActivityIndicator style={{ marginTop: space.sm }} color={c.textSecondary} accessibilityLabel="Loading more purchases" />;
+  return (
+    <FadeIn>
+      {items.map((x) => (
+        <TxnRow key={x.id} t={x} showDay />
+      ))}
+    </FadeIn>
+  );
+}
+
 /** Net worth: what you own minus what you owe, and what it's made of. */
-function NetWorthCard({ w, hidden }: { w: NonNullable<HomeDTO['wealth']>; hidden: boolean }) {
+function NetWorthCard({ w, hidden, inner }: { w: NonNullable<HomeDTO['wealth']>; hidden: boolean; inner?: boolean }) {
   const { c } = useTheme();
   const palette = [c.info, c.positive, c.loan, c.warning, c.textTertiary];
   const up = w.change >= 0;
   return (
     <Press onPress={() => router.push('/(tabs)/wealth')} accessibilityRole="button" accessibilityLabel={hidden ? 'Net worth, hidden. Open Wealth' : `Net worth ${formatINR(w.netWorth)}. Open Wealth`} scaleTo={0.99}>
-      <Card>
+      <Card style={inner ? innerBlock(c) : undefined}>
         <View>
           <Money value={w.netWorth} v="amount" decimals={0} hidden={hidden} />
         </View>
@@ -540,11 +684,11 @@ function MonthTile({ label, value, color, bg, icon, onPress }: { label: string; 
   );
 }
 
-function SINoticed({ d, onAsk }: { d: HomeDTO; onAsk?: (q: string) => void }) {
+function SINoticed({ d, onAsk, inner }: { d: HomeDTO; onAsk?: (q: string) => void; inner?: boolean }) {
   const { c } = useTheme();
   const i = d.insight;
   return (
-    <Card>
+    <Card style={inner ? innerBlock(c) : undefined}>
       <Row gap={space.md} style={{ alignItems: 'flex-start' }}>
         <SIOrb size={34} />
         <View style={{ flex: 1, gap: 6, paddingTop: 6 }}>
@@ -610,6 +754,120 @@ function HomeSkeleton() {
         <Skeleton height={70} width="32%" />
       </Row>
       <Skeleton height={130} style={{ borderRadius: radius.xl }} />
+    </View>
+  );
+}
+
+// ── Desktop Home sections ────────────────────────────────────────────
+
+const INVESTMENT_ICON: Record<string, string> = { MUTUAL_FUNDS: '📊', MUTUAL_FUND: '📊', TERM_DEPOSIT: '🏦', EPF: '🛡' };
+
+/** This month's income, spending and investing as three compact tiles. */
+function MonthMetrics({ m }: { m: HomeDTO['month'] }) {
+  const { c } = useTheme();
+  const tiles = [
+    { label: 'Income', value: m.income, color: c.positive, icon: ArrowDownLeft, filter: 'income' },
+    { label: 'Spent', value: m.spent, color: c.negative, icon: ArrowUpRight, filter: 'expenses' },
+    { label: 'Invested', value: m.invested, color: c.info, icon: TrendingUp, filter: 'investments' },
+  ] as const;
+  return (
+    <Row gap={space.sm}>
+      {tiles.map((t) => (
+        <Press
+          key={t.label}
+          onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: t.filter, month: m.key } })}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.label} this month: ${formatINR(t.value)}`}
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          <View style={[innerBlock(c), { paddingVertical: space.sm, paddingHorizontal: space.md, gap: 2 }]}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <T v="caption" color={t.color}>
+                {t.label}
+              </T>
+              <t.icon size={14} color={t.color} />
+            </Row>
+            <T v="bodySemibold" color={t.color} numberOfLines={1}>
+              {formatINR(t.value, { decimals: 0 })}
+            </T>
+          </View>
+        </Press>
+      ))}
+    </Row>
+  );
+}
+
+/** Where the money went this month: the four biggest spending categories, then "More". */
+function CategorySpend() {
+  const { c } = useTheme();
+  const q = useBudgets();
+  if (!q.data) return null;
+  const rows = [
+    ...q.data.budgets.map((b) => ({ id: b.categoryId, name: b.categoryName, emoji: b.emoji, spent: b.spent })),
+    ...q.data.unbudgeted.map((u) => ({ id: u.categoryId, name: u.categoryName, emoji: u.emoji, spent: u.spent })),
+  ]
+    .filter((r) => r.spent > 0)
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 4);
+  if (!rows.length) return null;
+  const circle: ViewStyle = { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' };
+  return (
+    <Row style={{ alignItems: 'flex-start', justifyContent: 'space-between' }} accessibilityLabel="Spending by category this month">
+      {rows.map((r) => (
+        <Press
+          key={r.id}
+          onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses', month: q.data!.monthKey, categoryId: r.id } })}
+          accessibilityRole="button"
+          accessibilityLabel={`${r.name}: ${formatINR(r.spent)} this month`}
+          style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}
+        >
+          <View style={circle}>
+            <Icon3D emoji={r.emoji} size={26} />
+          </View>
+          <T v="caption" tone="secondary" numberOfLines={1}>
+            {r.name}
+          </T>
+          <T v="smallMedium" numberOfLines={1}>
+            {formatINR(r.spent, { decimals: 0 })}
+          </T>
+        </Press>
+      ))}
+      <Press onPress={() => router.push({ pathname: '/(tabs)/activity', params: { filter: 'expenses', month: q.data.monthKey } })} accessibilityRole="button" accessibilityLabel="All spending this month" style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}>
+        <View style={circle}>
+          <Ellipsis size={20} color={c.text} />
+        </View>
+        <T v="caption" tone="secondary">
+          More
+        </T>
+      </Press>
+    </Row>
+  );
+}
+
+/** The next three recurring payments. */
+function UpcomingList({ u }: { u: HomeDTO['upcoming'] }) {
+  const { c } = useTheme();
+  if (!u.items.length) {
+    return (
+      <T v="small" tone="secondary">
+        No recurring payments found yet. Bills, rent and SIPs show up here once they repeat.
+      </T>
+    );
+  }
+  return (
+    <View>
+      {u.items.slice(0, 3).map((p, i) => (
+        <Row key={p.seriesKey} gap={space.md} style={{ paddingVertical: space.sm, borderTopWidth: i ? 1 : 0, borderTopColor: c.divider }}>
+          <EmojiAvatar emoji={category(p.categoryId).emoji} categoryId={p.categoryId} merchantKey={p.seriesKey.split('|')[0]} size={40} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T v="bodyMedium" numberOfLines={1}>
+              {p.merchantName}
+            </T>
+            <T v="caption" tone="tertiary" numberOfLines={1}>{`${category(p.categoryId).name} · ${p.overdue ? 'was due ' : ''}${formatDate(p.dueDate)}`}</T>
+          </View>
+          <T v="bodySemibold" tone="negative">{`− ${formatINR(p.amount, { decimals: 0 })}`}</T>
+        </Row>
+      ))}
     </View>
   );
 }

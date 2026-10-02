@@ -103,11 +103,22 @@ export function Press({
   );
 }
 
+/** True inside a desktop section card (ui/section), where cards draw a border instead of a fill. */
+export const InSection = createContext(false);
+
 /** Content card: a plain solid surface (glass is kept for bars and controls that float). */
 export function Card({ style, children, muted, ...rest }: ViewProps & { muted?: boolean }) {
   const { c } = useTheme();
+  const inSection = useContext(InSection);
   return (
-    <View {...rest} style={[{ backgroundColor: muted ? c.surfaceMuted : c.surface, borderRadius: radius.lg, padding: space.lg }, style]}>
+    <View
+      {...rest}
+      style={[
+        { backgroundColor: muted ? c.surfaceMuted : c.surface, borderRadius: radius.lg, padding: space.lg },
+        inSection && !muted ? { borderWidth: 1, borderColor: c.border, padding: space.md } : null,
+        style,
+      ]}
+    >
       {children}
     </View>
   );

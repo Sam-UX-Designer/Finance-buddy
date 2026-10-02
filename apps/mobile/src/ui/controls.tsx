@@ -137,11 +137,26 @@ export function Chip({ label, selected, onPress, icon }: { label: string; select
   );
 }
 
-export function ChipRow<K extends string>({ options, value, onChange }: { options: { key: K; label: string }[]; value: K; onChange: (k: K) => void }) {
+/** A chip option; an optional icon is drawn in its own colour (white on the selected chip). */
+export interface ChipOption<K extends string> {
+  key: K;
+  label: string;
+  icon?: LucideIcon;
+  color?: string;
+}
+
+export function ChipRow<K extends string>({ options, value, onChange }: { options: ChipOption<K>[]; value: K; onChange: (k: K) => void }) {
+  const { c } = useTheme();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingHorizontal: space.xl }} style={{ marginHorizontal: -space.xl, flexGrow: 0 }}>
       {options.map((o) => (
-        <Chip key={o.key} label={o.label} selected={o.key === value} onPress={() => onChange(o.key)} />
+        <Chip
+          key={o.key}
+          label={o.label}
+          selected={o.key === value}
+          onPress={() => onChange(o.key)}
+          icon={o.icon ? <o.icon size={14} color={o.key === value ? c.primaryText : (o.color ?? c.textSecondary)} strokeWidth={2.2} /> : undefined}
+        />
       ))}
     </ScrollView>
   );

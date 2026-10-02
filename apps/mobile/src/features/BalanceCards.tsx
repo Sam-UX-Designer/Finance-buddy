@@ -30,7 +30,20 @@ interface Tilt {
   y: Animated.Value;
 }
 
-export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { total: Paise; accounts: HomeAccount[]; hidden: boolean; onToggleHidden: () => void }) {
+export function BalanceCards({
+  total,
+  accounts,
+  hidden,
+  onToggleHidden,
+  strip,
+}: {
+  total: Paise;
+  accounts: HomeAccount[];
+  hidden: boolean;
+  onToggleHidden: () => void;
+  /** Desktop: every card in one row across the top of Home (the total a little wider). */
+  strip?: boolean;
+}) {
   const { c, reduceMotion } = useTheme();
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
@@ -68,9 +81,48 @@ export function BalanceCards({ total, accounts, hidden, onToggleHidden }: { tota
   };
   const goTo = (p: number) => scroller.current?.scrollTo({ x: p * pageW, animated: !reduceMotion });
 
+  // Desktop strip: all cards side by side and all the same size. They grow with the window up to
+  // STRIP_MAX_W and keep their shape; past that they stop growing instead of stretching.
+  const stripCount = accounts.length + 1;
+  const stripW = Math.min(STRIP_MAX_W, Math.floor((width - STRIP_GAP * (stripCount - 1)) / stripCount));
+  if (wide && strip && width && stripW >= 112) {
+    const totalW = stripW;
+    const bankStripW = stripW;
+    const h = Math.max(140, Math.round(stripW / 1.45));
+    // Spread the cards edge to edge (lining up with the columns below) unless the gaps would get wide.
+    const spread = stripCount > 1 && (width - stripW * stripCount) / (stripCount - 1) <= 40;
+    return (
+      <View onLayout={(e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width))} accessibilityLabel="Balance cards" style={{ gap: space.sm }}>
+        <Row gap={spread ? 0 : STRIP_GAP} style={{ alignItems: 'flex-start', justifyContent: spread ? 'space-between' : 'flex-start' }}>
+          <DeskCard
+            width={totalW}
+            height={h}
+            label={hidden ? 'Total balance, hidden' : `Total balance ${formatINR(total)} across ${accounts.length} accounts`}
+            front={(t, flipped) => <TotalFront total={total} accounts={accounts} hidden={hidden} onToggleHidden={onToggleHidden} width={totalW} height={h} tilt={t} sweep={sweep} active={!flipped} />}
+            back={(t) => <TotalBack accounts={accounts} hidden={hidden} width={totalW} height={h} tilt={t} sweep={sweep} />}
+          />
+          {accounts.map((a) => (
+            <DeskCard
+              key={a.id}
+              width={bankStripW}
+              height={h}
+              label={hidden ? `${a.fip.name}, balance hidden` : `${a.fip.name} ${a.typeLabel} ending ${last4(a.maskedNumber)}, ${formatINR(a.balance)}`}
+              front={(t) => <BankFront a={a} hidden={hidden} width={bankStripW} height={h} tilt={t} sweep={sweep} />}
+              back={() => <BankBack a={a} width={bankStripW} height={h} />}
+            />
+          ))}
+        </Row>
+        <T v="caption" tone="tertiary" align="right">
+          Click a card to flip it
+        </T>
+      </View>
+    );
+  }
+
   if (wide) {
     // Desktop has the room to show every card whole: the total on top, the banks two to a row
     // underneath (an odd last bank gets the full width). Each card tilts and flips on its own.
+    // (Also the fallback for the strip when there are too many banks to fit in one row.)
     const gap = space.md;
     const half = Math.floor((width - gap) / 2);
     const fullH = Math.max(176, Math.round(width / 2.1));
@@ -244,10 +296,13 @@ function TotalFront({ total, accounts, hidden, onToggleHidden, width, height, ti
         </Pressable>
       </Row>
       <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Money value={total} v="display" color={k.text} decimals={2} hidden={hidden} />
-        <T v="small" color={k.sub} style={{ marginTop: 4 }}>
-          {accounts.length ? `Across ${accounts.length} bank account${accounts.length === 1 ? '' : 's'}` : 'No bank accounts connected'}
-        </T>
+        <Money value={total} v={width < 260 ? 'title' : height < 176 ? 'headline' : 'display'} color={k.text} decimals={width < 230 ? 0 : 2} hidden={hidden} />
+        {/* Short desktop strip cards: the bank logos below already say how many accounts. */}
+        {height < 176 ? null : (
+          <T v="small" color={k.sub} style={{ marginTop: 4 }}>
+            {accounts.length ? `Across ${accounts.length} bank account${accounts.length === 1 ? '' : 's'}` : 'No bank accounts connected'}
+          </T>
+        )}
       </View>
       <Row style={{ justifyContent: 'space-between' }}>
         <Row>
@@ -296,6 +351,10 @@ function TotalBack({ accounts, hidden, width, height, tilt, sweep }: { accounts:
   );
 }
 
+/** Desktop card strip: the gap between cards and the largest a card gets on very wide screens. */
+const STRIP_GAP = 16;
+const STRIP_MAX_W = 296;
+
 /** Below this width a card uses smaller type and drops the chip (desktop grid cards). */
 const COMPACT_W = 320;
 
@@ -329,13 +388,15 @@ function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; 
       </Row>
       <View style={{ flex: 1, justifyContent: 'center', gap: 10 }}>
         {compact ? null : <CardChip />}
-        <Money value={a.balance} v={compact ? 'title' : 'display'} color="#FFFFFF" decimals={2} hidden={hidden} />
+        <Money value={a.balance} v={width < 160 ? 'subtitle' : compact ? 'title' : 'display'} color="#FFFFFF" decimals={width < 230 ? 0 : 2} hidden={hidden} />
       </View>
       <Row style={{ justifyContent: 'space-between', gap: 8 }}>
         <T v={compact ? 'smallMedium' : 'bodyMedium'} color="#FFFFFF" style={{ letterSpacing: compact ? 1 : 2 }}>{`••••  ${last4(a.maskedNumber)}`}</T>
-        <T v="caption" color="rgba(255,255,255,0.75)" numberOfLines={1}>
-          {a.lastSyncedAt ? `Updated ${formatTime(a.lastSyncedAt)}` : 'Not updated yet'}
-        </T>
+        {width < 240 ? null : (
+          <T v="caption" color="rgba(255,255,255,0.75)" numberOfLines={1}>
+            {a.lastSyncedAt ? `Updated ${formatTime(a.lastSyncedAt)}` : 'Not updated yet'}
+          </T>
+        )}
       </Row>
     </CardSurface>
   );

@@ -12,6 +12,7 @@ import { webInputReset } from '@/ui/controls';
 import { ErrorState, Skeleton } from '@/ui/layout';
 import { Press, Row, T } from '@/ui/primitives';
 import { SIOrb } from '@/ui/SIOrb';
+import { PromptPills } from './PromptPills';
 import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from './SIMessages';
 
 /**
@@ -63,7 +64,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
   // Follow-ups to the last answer first, then general suggestions; skip anything already asked.
   const asked = new Set(messages.filter((m) => m.role === 'user').map((m) => m.text.trim().toLowerCase()));
   const lastAnswer = [...messages].reverse().find((m) => m.role === 'assistant');
-  const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 3);
+  const prompts = [...new Set([...(lastAnswer?.followUps ?? []), ...(si.data?.suggestions ?? [])])].filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 6);
   const first = me?.name?.split(' ')[0];
 
   return (
@@ -145,20 +146,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
 
       <View style={{ paddingHorizontal: space.lg, paddingBottom: space.lg, paddingTop: space.sm, gap: space.sm, borderTopWidth: 1, borderTopColor: c.divider }}>
         {si.data && !pending && prompts.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }} accessibilityLabel="Suggested questions">
-            {prompts.map((q) => (
-              <Press
-                key={q}
-                onPress={() => send(q)}
-                accessibilityRole="button"
-                style={{ height: 30, borderRadius: 15, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: c.surfaceMuted, maxWidth: '100%' }}
-              >
-                <T v="small" numberOfLines={1}>
-                  {q}
-                </T>
-              </Press>
-            ))}
-          </View>
+          <PromptPills key={prompts.join('|')} items={prompts} onPick={send} fade={c.surface} padX={space.lg} style={{ marginHorizontal: -space.lg }} />
         ) : null}
         <Row gap={space.sm} style={{ height: 44, borderRadius: 22, paddingLeft: space.lg, paddingRight: 4, backgroundColor: c.surfaceMuted }}>
           <TextInput

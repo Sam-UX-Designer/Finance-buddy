@@ -9,6 +9,7 @@ import { useAsk, useNewChat, usePlan, useSetAssumptions, useSI } from '@/lib/que
 import { storage } from '@/lib/storage';
 import { ChatHistoryList, ChatHistorySheet } from '@/features/ChatHistory';
 import { BriefLine, Message, UPDATE_NUMBERS, UserBubble } from '@/features/SIMessages';
+import { PromptPills } from '@/features/PromptPills';
 import { useSISetup, type SetupLine } from '@/features/siSetup';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -184,7 +185,7 @@ export default function SIScreen() {
                 alignSelf: 'center',
                 paddingHorizontal: PAGE_X,
                 paddingTop: header + space.lg,
-                paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H * (wide ? 2 : 1) : 0) + space.xl,
+                paddingBottom: inputBottom + INPUT_H + (showSuggestions ? SUGGEST_H : 0) + space.xl,
               }}
             >
               {setup.active ? (
@@ -299,66 +300,17 @@ export default function SIScreen() {
           {/* Input: floats above the tab bar */}
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingHorizontal: PAGE_X }} pointerEvents="box-none">
             {showSuggestions ? (
-              wide ? (
-                // Desktop: the questions wrap onto a second line rather than running off the edge.
-                <View
-                  key={replies.join('|')}
-                  accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
-                  style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm, marginBottom: space.sm, width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center' }}
-                >
-                  {replies.map((q) => (
-                    <Press
-                      key={q}
-                      onPress={() => send(q)}
-                      accessibilityRole="button"
-                      style={{
-                        height: SUGGEST_H - space.sm,
-                        borderRadius: (SUGGEST_H - space.sm) / 2,
-                        paddingHorizontal: 16,
-                        justifyContent: 'center',
-                        backgroundColor: c.surface,
-                        borderWidth: 1,
-                        borderColor: c.border,
-                      }}
-                    >
-                      <T v="small" numberOfLines={1}>
-                        {q}
-                      </T>
-                    </Press>
-                  ))}
-                </View>
-              ) : (
-                <ScrollView
-                  key={replies.join('|')}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
-                  style={{ marginHorizontal: -PAGE_X, marginBottom: space.sm, flexGrow: 0 }}
-                  contentContainerStyle={{ paddingHorizontal: PAGE_X, gap: space.sm, minWidth: '100%', justifyContent: wide ? 'center' : 'flex-start' }}
-                >
-                  {replies.map((q) => (
-                    <Press
-                      key={q}
-                      onPress={() => send(q)}
-                      accessibilityRole="button"
-                      style={{
-                        height: SUGGEST_H - space.sm,
-                        borderRadius: (SUGGEST_H - space.sm) / 2,
-                        paddingHorizontal: 16,
-                        justifyContent: 'center',
-                        backgroundColor: c.surface,
-                        borderWidth: 1,
-                        borderColor: c.border,
-                      }}
-                    >
-                      <T v="small" numberOfLines={1}>
-                        {q}
-                      </T>
-                    </Press>
-                  ))}
-                </ScrollView>
-              )
+              // One line that scrolls sideways (phones swipe; desktop scrolls with the wheel or trackpad).
+              <PromptPills
+                key={replies.join('|')}
+                items={replies}
+                onPick={send}
+                icons={!setup.active}
+                fade={c.bg}
+                padX={wide ? 0 : PAGE_X}
+                accessibilityLabel={setup.active ? 'Answers' : 'Suggested questions'}
+                style={wide ? { width: '100%', maxWidth: width - PAGE_X * 2, alignSelf: 'center', marginBottom: space.sm } : { marginHorizontal: -PAGE_X, marginBottom: space.sm }}
+              />
             ) : null}
             <GlassSurface
               radius={INPUT_H / 2}

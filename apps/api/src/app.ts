@@ -6,6 +6,7 @@ import {
   CATEGORY_IDS,
   defaultCategoryForType,
   isTypeAllowed,
+  MAX_QUESTION_LENGTH,
   TXN_TYPES,
   type ActivityFilter,
   type CategoryId,
@@ -388,7 +389,7 @@ export function createApp(ctx: AppContext, opts: AppOptions = {}): Hono<Env> {
   // ── SI ─────────────────────────────────────────────────────────────
   app.get('/v1/si', async (c) => c.json(await siHome(ctx, uid(c), c.req.query('conversationId') || undefined)));
   app.post('/v1/si/ask', async (c) => {
-    const body = await parse(c, z.object({ text: z.string().trim().min(1).max(500), conversationId: z.string().optional() }));
+    const body = await parse(c, z.object({ text: z.string().trim().min(1).max(MAX_QUESTION_LENGTH), conversationId: z.string().optional() }));
     return c.json(await ask(ctx, uid(c), body.text, body.conversationId));
   });
   // New chat: earlier chats stay in history. (/clear is the older name for the same action.)

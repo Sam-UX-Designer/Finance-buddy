@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { istDateKey, istToISO, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@finance-buddy/core';
+import { istDateKey, istToISO, MAX_QUESTION_LENGTH, monthSummary, salaryCycles, type HomeDTO, type TxnDTO } from '@finance-buddy/core';
 import { createApp } from '../src/app';
 import { buildContext } from '../src/bootstrap';
 import { loadConfig } from '../src/config';
@@ -244,6 +244,16 @@ describe('end-to-end onboarding and product flow', () => {
     await t.call('PATCH', '/v1/me', { name: 'Sammy' });
     await resync();
     expect((await t.call('GET', '/v1/me')).json.name).toBe('Sammy');
+  });
+
+  it('takes long questions up to the shared limit', async () => {
+    const t = await setup();
+    await signIn(t, '9012345678');
+    await onboard(t);
+    const long = `Can I afford a family trip to Goa? ${'We also want to plan for school fees and a new phone. '.repeat(80)}`.slice(0, MAX_QUESTION_LENGTH);
+    expect(long.length).toBe(MAX_QUESTION_LENGTH);
+    expect((await t.call('POST', '/v1/si/ask', { text: long })).status).toBe(200);
+    expect((await t.call('POST', '/v1/si/ask', { text: 'x'.repeat(MAX_QUESTION_LENGTH + 1) })).status).toBe(400);
   });
 
   it('labels a partial picture when an FIP fails', async () => {

@@ -398,7 +398,6 @@ export default function SIScreen() {
                   placeholderTextColor={c.textSecondary}
                   accessibilityLabel="Ask SI a question"
                   returnKeyType="send"
-                  maxLength={500}
                   autoComplete="off"
                   style={{ marginVertical: (40 - INPUT_LINE) / 2 }}
                 />

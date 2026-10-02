@@ -174,8 +174,7 @@ export function SIChatPanel({ question }: { question?: { q: string; n: number } 
             placeholderTextColor={c.textSecondary}
             accessibilityLabel="Ask Super Intelligence a question"
             returnKeyType="send"
-            maxLength={500}
-            autoComplete="off"
+                        autoComplete="off"
             style={{ marginVertical: (36 - INPUT_LINE) / 2 }}
           />
           <Press

@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode }
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Eye, EyeOff, RotateCw } from 'lucide-react-native';
-import { formatDate, formatINR, formatTime, type HomeAccount, type Paise } from '@finance-buddy/core';
+import { formatDate, formatINR, formatTime, istDateKey, istParts, monthName, type HomeAccount, type Paise } from '@finance-buddy/core';
 import { useTheme } from '@/theme/ThemeProvider';
 import { haptics } from '@/lib/haptics';
 import { space } from '@/theme/tokens';
@@ -383,28 +383,49 @@ function TotalFront({ total, accounts, hidden, onToggleHidden, width, height, ti
   );
 }
 
+/** Small desktop strip cards get tighter backs, so nothing overlaps. */
+const isTight = (width: number, height: number) => width < 240 || height < 176;
+
 function TotalBack({ accounts, hidden, width, height, tilt, sweep }: { accounts: HomeAccount[]; hidden: boolean; width: number; height: number; tilt: Tilt; sweep: Animated.Value }) {
   const k = useTotalColors();
+  const tight = isTight(width, height);
+  const pad = tight ? 14 : 20;
+  const rowH = tight ? 18 : 22;
+  const rowGap = tight ? 4 : 6;
+  // As many accounts as fit between the heading and "View accounts" (with a little space around
+  // the list), up to four; the heading then says how many there are and the rest are a tap away.
+  const headH = tight ? 16 : 18;
+  const around = tight ? 6 : 8;
+  const room = height - pad * 2 - headH - 18 - around * 2;
+  const shown = accounts.slice(0, Math.max(1, Math.min(4, Math.floor((room + rowGap) / (rowH + rowGap)))));
+  const more = accounts.length > shown.length;
+  // Narrow cards drop the bank names; the logos say which bank it is.
+  const names = width >= 200;
   return (
-    <CardSurface width={width} height={height} from={k.to} to={k.from} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare * 0.6}>
-      <T v="smallMedium" color={k.sub}>
-        Your bank accounts
+    <CardSurface pad={pad} width={width} height={height} from={k.to} to={k.from} border={k.border} tilt={tilt} sweep={sweep} glare={k.glare * 0.6}>
+      <T v={tight ? 'captionMedium' : 'smallMedium'} color={k.sub} numberOfLines={1}>
+        {more ? (tight ? `${accounts.length} accounts` : `Your ${accounts.length} bank accounts`) : tight ? 'Your accounts' : 'Your bank accounts'}
       </T>
-      <View style={{ flex: 1, justifyContent: 'center', gap: 6 }}>
-        {accounts.slice(0, 4).map((a) => (
-          <Row key={a.id} gap={10}>
-            <FipMark fip={a.fip} size={22} />
-            <T v="small" color={k.text} style={{ flex: 1 }} numberOfLines={1}>{`${a.fip.shortName} •••• ${last4(a.maskedNumber)}`}</T>
-            <T v="smallMedium" color={k.text}>
+      <View style={{ flex: 1, justifyContent: 'center', gap: rowGap, marginVertical: around }}>
+        {shown.map((a) => (
+          <Row key={a.id} gap={tight ? 8 : 10} style={{ height: rowH }}>
+            <FipMark fip={a.fip} size={tight ? 16 : 22} />
+            {names ? (
+              <T v="small" color={k.text} style={{ flex: 1 }} numberOfLines={1}>
+                {tight ? a.fip.shortName : `${a.fip.shortName} •••• ${last4(a.maskedNumber)}`}
+              </T>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <T v="smallMedium" color={k.text} numberOfLines={1}>
               {hidden ? '₹ ••••' : formatINR(a.balance, { decimals: 0 })}
             </T>
           </Row>
         ))}
-        {accounts.length > 4 ? <T v="caption" color={k.sub}>{`+${accounts.length - 4} more`}</T> : null}
       </View>
       <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="View accounts" hitSlop={8}>
-        <T v="smallMedium" color={k.text}>
-          View accounts →
+        <T v="smallMedium" color={k.text} numberOfLines={1}>
+          {width < 170 ? 'View all →' : 'View accounts →'}
         </T>
       </Pressable>
     </CardSurface>
@@ -462,34 +483,76 @@ function BankFront({ a, hidden, width, height, tilt, sweep }: { a: HomeAccount; 
   );
 }
 
+/** When an account last updated: "today, 4:03 PM" or "2 Oct, 4:03 PM"; `short` keeps just the time or the day. */
+function syncedWhen(iso: string, short: boolean): string {
+  const time = formatTime(iso);
+  if (istDateKey(iso) === istDateKey(new Date())) return short ? time : `today, ${time}`;
+  const p = istParts(iso);
+  const day = `${p.day} ${monthName(p.month)}`;
+  return short ? day : `${day}, ${time}`;
+}
+
 function BankBack({ a, width, height }: { a: HomeAccount; width: number; height: number }) {
+  const bg = shade(a.fip.color, -0.35);
+  const open = () => router.push({ pathname: '/(tabs)/activity', params: { accountId: a.id } });
+  if (isTight(width, height)) {
+    // Bank, account type and when it updated, then the button; every line stays on one line.
+    return (
+      <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: bg, padding: 14 }}>
+        <Row gap={8}>
+          <BankLogo fip={a.fip} size={20} />
+          <T v="smallMedium" color="#FFFFFF" numberOfLines={1} style={{ flex: 1 }}>
+            {a.fip.shortName}
+          </T>
+        </Row>
+        <View style={{ flex: 1, justifyContent: 'center', gap: 2 }}>
+          <T v="small" color="rgba(255,255,255,0.85)" numberOfLines={1}>
+            {a.typeLabel}
+          </T>
+          <T v="caption" color="rgba(255,255,255,0.7)" numberOfLines={1}>
+            {a.lastSyncedAt ? `Updated ${syncedWhen(a.lastSyncedAt, width < 190)}` : 'Not updated yet'}
+          </T>
+        </View>
+        <Pressable
+          onPress={open}
+          accessibilityRole="button"
+          accessibilityLabel={`See ${a.fip.shortName} transactions`}
+          style={{ height: 30, borderRadius: 15, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <T v="smallMedium" color={bg} numberOfLines={1}>
+            {width < 170 ? 'Transactions' : 'See transactions'}
+          </T>
+        </Pressable>
+      </View>
+    );
+  }
   const rows: [string, string][] = [
     ['Account', a.typeLabel],
     ['Number', `•••• ${last4(a.maskedNumber)}`],
     [width < COMPACT_W ? 'Updated' : 'Last updated', a.lastSyncedAt ? `${formatDate(a.lastSyncedAt)}, ${formatTime(a.lastSyncedAt)}` : 'Not yet'],
   ];
   return (
-    <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: shade(a.fip.color, -0.35), padding: width < COMPACT_W ? 16 : 20 }}>
-      <T v="smallMedium" color="rgba(255,255,255,0.75)">{`${a.fip.name}`}</T>
+    <View style={{ width, height, borderRadius: RADIUS, overflow: 'hidden', backgroundColor: bg, padding: width < COMPACT_W ? 16 : 20 }}>
+      <T v="smallMedium" color="rgba(255,255,255,0.75)" numberOfLines={1}>{`${a.fip.name}`}</T>
       <View style={{ flex: 1, justifyContent: 'center', gap: width < COMPACT_W ? 4 : 8 }}>
         {rows.map(([k, v]) => (
-          <Row key={k} style={{ justifyContent: 'space-between' }}>
-            <T v="small" color="rgba(255,255,255,0.7)">
+          <Row key={k} gap={8} style={{ justifyContent: 'space-between' }}>
+            <T v="small" color="rgba(255,255,255,0.7)" numberOfLines={1}>
               {k}
             </T>
-            <T v="smallMedium" color="#FFFFFF">
+            <T v="smallMedium" color="#FFFFFF" numberOfLines={1} style={{ flexShrink: 1 }}>
               {v}
             </T>
           </Row>
         ))}
       </View>
       <Pressable
-        onPress={() => router.push({ pathname: '/(tabs)/activity', params: { accountId: a.id } })}
+        onPress={open}
         accessibilityRole="button"
         accessibilityLabel={`See ${a.fip.shortName} transactions`}
         style={{ height: width < COMPACT_W ? 34 : 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}
       >
-        <T v="smallMedium" color={shade(a.fip.color, -0.35)}>
+        <T v="smallMedium" color={bg}>
           See transactions
         </T>
       </Pressable>
